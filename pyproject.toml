@@ -1,0 +1,22 @@
+[project]
+name = "lumen_restock"
+authors = [
+    { name = "Lumen Solutions", email = "hello@lumen-solutions.co" },
+]
+description = "Smart restocking for ERPNext: sales speed, days left, reorder points, transfer and purchase suggestions"
+# Frappe v13 runs on Python 3.7 to 3.9, so nothing newer than 3.7 syntax.
+requires-python = ">=3.7"
+readme = "README.md"
+license = { file = "license.txt" }
+dynamic = ["version"]
+dependencies = []
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.bench.frappe-dependencies]
+# One branch serves v13, v14, v15 and v16. Version differences are handled in
+# code (lumen_restock/restock/compat.py), not by excluding releases.
+frappe = ">=13.0.0,<17.0.0"
+erpnext = ">=13.0.0,<17.0.0"

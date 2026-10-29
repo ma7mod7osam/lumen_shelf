@@ -1,0 +1,50 @@
+{
+ "actions": [],
+ "creation": "2026-10-29 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled", "intro",
+  "section_restock", "restock_source", "cover_days", "service_level", "column_break_1", "default_lead_time", "transfer_lead_time", "history_weeks",
+  "section_transfers", "outlet_transfers", "min_history_days",
+  "section_health", "stock_health", "slow_days", "overstock_days",
+  "section_warehouses", "detected", "warehouses"
+ ],
+ "fields": [
+  {"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled", "default": "1", "description": "Switch Lumen Restock on or off for everyone."},
+  {"fieldname": "intro", "fieldtype": "HTML", "label": "Introduction", "options": ""},
+  {"fieldname": "section_restock", "fieldtype": "Section Break", "label": "Restocking"},
+  {"fieldname": "restock_source", "fieldtype": "Select", "label": "Restock from", "options": "Transfer first, then buy\nBuy from supplier\nTransfer from main warehouse", "default": "Transfer first, then buy", "description": "Where a shortage in an outlet is filled from."},
+  {"fieldname": "cover_days", "fieldtype": "Int", "label": "Days of cover", "default": "14", "non_negative": 1, "description": "A suggestion buys or moves enough for this many days of sales, after the lead time."},
+  {"fieldname": "service_level", "fieldtype": "Select", "label": "Safety level", "options": "90%\n95%\n98%\n99%", "default": "95%", "description": "The higher it is, the more safety stock is kept for items whose sales swing."},
+  {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+  {"fieldname": "default_lead_time", "fieldtype": "Int", "label": "Supplier lead time (days)", "default": "7", "non_negative": 1, "description": "Used until a supplier has a Purchase Receipt against a Purchase Order. After that the lead time is learned from those receipts."},
+  {"fieldname": "transfer_lead_time", "fieldtype": "Int", "label": "Transfer lead time (days)", "default": "2", "non_negative": 1, "description": "Days for a transfer from another warehouse to reach the shelf."},
+  {"fieldname": "history_weeks", "fieldtype": "Int", "label": "Weeks of sales history", "default": "8", "non_negative": 1, "description": "Recent weeks weigh more. Days an item was out of stock are left out."},
+  {"fieldname": "section_transfers", "fieldtype": "Section Break", "label": "Transfers between outlets"},
+  {"fieldname": "outlet_transfers", "fieldtype": "Check", "label": "Suggest transfers between outlets", "default": "1", "description": "Surplus in one outlet covers a shortage in another before anything is bought, and stock that does not sell in one outlet moves to where it sells."},
+  {"fieldname": "min_history_days", "fieldtype": "Int", "label": "Days in stock needed before judging an outlet", "default": "28", "non_negative": 1, "depends_on": "outlet_transfers", "description": "An outlet gives stock away, or counts as slow, only after it has had the item on the shelf for this many days."},
+  {"fieldname": "section_health", "fieldtype": "Section Break", "label": "Stock health"},
+  {"fieldname": "stock_health", "fieldtype": "Check", "label": "Show stock health", "default": "1", "description": "Slow movers, overstock and the ABC ranking."},
+  {"fieldname": "slow_days", "fieldtype": "Int", "label": "Slow when stock lasts more than (days)", "default": "90", "non_negative": 1, "depends_on": "stock_health"},
+  {"fieldname": "overstock_days", "fieldtype": "Int", "label": "Overstock when stock lasts more than (days)", "default": "60", "non_negative": 1, "depends_on": "stock_health"},
+  {"fieldname": "section_warehouses", "fieldtype": "Section Break", "label": "Warehouses", "collapsible": 1},
+  {"fieldname": "detected", "fieldtype": "HTML", "label": "What was found"},
+  {"fieldname": "warehouses", "fieldtype": "Table", "label": "Warehouse roles", "options": "Lumen Restock Warehouse", "description": "Optional. Every warehouse is an outlet unless named here. The main warehouse is found from the transfers it sends, unless one is named."}
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Lumen Restock",
+ "name": "Lumen Restock Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {"create": 1, "delete": 1, "email": 1, "print": 1, "read": 1, "role": "System Manager", "share": 1, "write": 1},
+  {"create": 1, "delete": 1, "email": 1, "print": 1, "read": 1, "role": "Restock Manager", "share": 1, "write": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

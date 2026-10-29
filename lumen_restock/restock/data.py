@@ -1,0 +1,290 @@
+"""Bulk reads from ERPNext's own tables. One query per kind of fact for a whole
+company, never one per item, so a chain with thousands of items and many
+outlets reads in seconds.
+
+Every number comes from where ERPNext itself keeps it:
+  on the shelf      Bin.actual_qty, less submitted POS Invoices not yet
+                    consolidated (ERPNext's get_pos_reserved_qty: a POS Invoice
+                    moves no stock until its shift's closing entry)
+  on order          Bin.ordered_qty (open Purchase Orders) + Bin.indented_qty
+                    (open Material Requests, purchase and transfer)
+  reserved          Bin.reserved_qty (Sales Orders)
+  sales             POS Invoice items, and Sales Invoice items whose invoice is
+                    not a POS consolidation (is_consolidated = 0), or every POS
+                    sale would count twice; bundle parts through Packed Item
+  stock by day      Stock Ledger Entry.qty_after_transaction
+"""
+
+import frappe
+from frappe.utils import flt, getdate
+
+
+def _in(values):
+	return tuple(values) if values else ("",)
+
+
+def _items_clause(items, column="item_code"):
+	return (" and %s in %%(items)s" % column) if items else ""
+
+
+def warehouses(company):
+	has_rejected = frappe.db.has_column("Warehouse", "is_rejected_warehouse")
+	rows = frappe.db.sql(
+		"""select name, warehouse_type, {rej} as is_rejected
+		from `tabWarehouse`
+		where company=%s and is_group=0 and disabled=0
+		order by name""".format(rej="is_rejected_warehouse" if has_rejected else "0"),
+		(company,),
+		as_dict=True,
+	)
+	return rows
+
+
+def item_master(item_codes):
+	"""Stock items that can be restocked: enabled, kept in stock, not a template."""
+	if not item_codes:
+		return {}
+	rows = frappe.db.sql(
+		"""select i.name, i.item_name, i.item_group, i.stock_uom, i.purchase_uom,
+			i.min_order_qty, i.lead_time_days, i.is_purchase_item,
+			ifnull(u.must_be_whole_number, 0) as whole
+		from `tabItem` i left join `tabUOM` u on u.name = i.stock_uom
+		where i.name in %(items)s and i.is_stock_item=1 and i.disabled=0 and i.has_variants=0""",
+		{"items": _in(item_codes)},
+		as_dict=True,
+	)
+	out = {r.name: r for r in rows}
+	if out:
+		packs = frappe.db.sql(
+			"""select d.parent, d.uom, d.conversion_factor from `tabUOM Conversion Detail` d
+			where d.parenttype='Item' and d.parent in %(items)s""",
+			{"items": _in(list(out))},
+		)
+		factors = {(p, u): flt(f) for p, u, f in packs}
+		for code, r in out.items():
+			pack = 0.0
+			if r.purchase_uom and r.purchase_uom != r.stock_uom:
+				pack = factors.get((code, r.purchase_uom), 0.0)
+			r["pack"] = pack if pack > 0 else 0.0
+			r["whole"] = 1 if r.get("whole") else 0
+	return out
+
+
+def bins(whs, items=None):
+	rows = frappe.db.sql(
+		"""select item_code, warehouse, actual_qty, ordered_qty, indented_qty, reserved_qty,
+			valuation_rate, stock_value
+		from `tabBin` where warehouse in %(whs)s""" + _items_clause(items),
+		{"whs": _in(whs), "items": _in(items or [])},
+		as_dict=True,
+	)
+	return {(r.item_code, r.warehouse): r for r in rows}
+
+
+def pos_reserved(whs, items=None):
+	"""Sold at the till but not yet out of the Stock Ledger: submitted POS
+	Invoices with no consolidated invoice yet, their own lines and the parts of
+	any bundle (Packed Item), as ERPNext's get_pos_reserved_qty counts them."""
+	out = {}
+	q1 = frappe.db.sql(
+		"""select i.item_code, i.warehouse, sum(i.stock_qty)
+		from `tabPOS Invoice Item` i join `tabPOS Invoice` p on p.name = i.parent
+		where p.docstatus=1 and ifnull(p.consolidated_invoice, '') = ''
+			and i.warehouse in %(whs)s""" + _items_clause(items, "i.item_code") + """
+		group by i.item_code, i.warehouse""",
+		{"whs": _in(whs), "items": _in(items or [])},
+	)
+	q2 = frappe.db.sql(
+		"""select i.item_code, i.warehouse, sum(i.qty)
+		from `tabPacked Item` i join `tabPOS Invoice` p on p.name = i.parent
+		where i.parenttype='POS Invoice' and p.docstatus=1 and ifnull(p.consolidated_invoice, '') = ''
+			and i.warehouse in %(whs)s""" + _items_clause(items, "i.item_code") + """
+		group by i.item_code, i.warehouse""",
+		{"whs": _in(whs), "items": _in(items or [])},
+	)
+	for item, wh, qty in list(q1) + list(q2):
+		out[(item, wh)] = out.get((item, wh), 0.0) + flt(qty)
+	return out
+
+
+def sales(company, whs, start, end, items=None):
+	"""{(item, warehouse): {date: [qty, value]}} in stock units and company
+	currency, net of returns. POS Invoices, plus Sales Invoices that are not a
+	POS consolidation, plus the parts of bundles sold on either."""
+	out = {}
+	args = {"company": company, "whs": _in(whs), "start": start, "end": end, "items": _in(items or [])}
+
+	def add(rows):
+		for item, wh, day, qty, value in rows:
+			d = out.setdefault((item, wh), {})
+			cell = d.setdefault(getdate(day), [0.0, 0.0])
+			cell[0] += flt(qty)
+			cell[1] += flt(value)
+
+	add(
+		frappe.db.sql(
+			"""select i.item_code, i.warehouse, p.posting_date, sum(i.stock_qty), sum(i.base_net_amount)
+			from `tabPOS Invoice Item` i join `tabPOS Invoice` p on p.name = i.parent
+			where p.docstatus=1 and p.company=%(company)s and p.posting_date between %(start)s and %(end)s
+				and i.warehouse in %(whs)s""" + _items_clause(items, "i.item_code") + """
+			group by i.item_code, i.warehouse, p.posting_date""",
+			args,
+		)
+	)
+	add(
+		frappe.db.sql(
+			"""select i.item_code, i.warehouse, s.posting_date, sum(i.stock_qty), sum(i.base_net_amount)
+			from `tabSales Invoice Item` i join `tabSales Invoice` s on s.name = i.parent
+			where s.docstatus=1 and s.is_consolidated=0 and s.company=%(company)s
+				and s.posting_date between %(start)s and %(end)s
+				and i.warehouse in %(whs)s""" + _items_clause(items, "i.item_code") + """
+			group by i.item_code, i.warehouse, s.posting_date""",
+			args,
+		)
+	)
+	for parent in ("POS Invoice", "Sales Invoice"):
+		cond = " and s.is_consolidated=0" if parent == "Sales Invoice" else ""
+		add(
+			frappe.db.sql(
+				"""select i.item_code, i.warehouse, s.posting_date, sum(i.qty), 0
+				from `tabPacked Item` i join `tab{parent}` s on s.name = i.parent
+				where i.parenttype=%(parent)s and s.docstatus=1 and s.company=%(company)s{cond}
+					and s.posting_date between %(start)s and %(end)s
+					and i.warehouse in %(whs)s""".format(parent=parent, cond=cond)
+				+ _items_clause(items, "i.item_code")
+				+ """ group by i.item_code, i.warehouse, s.posting_date""",
+				dict(args, parent=parent),
+			)
+		)
+	return out
+
+
+def ledger_opening(whs, start, items=None):
+	"""{(item, warehouse): qty} on the shelf just before `start`: the last
+	Stock Ledger Entry before it, in ERPNext's own order (posting date, posting
+	time, creation)."""
+	rows = frappe.db.sql(
+		"""select item_code, warehouse, qty_after_transaction from (
+			select item_code, warehouse, qty_after_transaction,
+				row_number() over (partition by item_code, warehouse
+					order by posting_date desc, posting_time desc, creation desc) as rn
+			from `tabStock Ledger Entry`
+			where is_cancelled=0 and warehouse in %(whs)s and posting_date < %(start)s"""
+		+ _items_clause(items)
+		+ """) t where rn=1""",
+		{"whs": _in(whs), "start": start, "items": _in(items or [])},
+	)
+	return {(i, w): flt(q) for i, w, q in rows}
+
+
+def ledger_days(whs, start, end, items=None):
+	"""{(item, warehouse): {date: (closing qty, highest qty that day)}} for
+	days with a Stock Ledger movement inside the window."""
+	rows = frappe.db.sql(
+		"""select item_code, warehouse, posting_date, qty_after_transaction, mx from (
+			select item_code, warehouse, posting_date, qty_after_transaction,
+				max(qty_after_transaction) over (partition by item_code, warehouse, posting_date) as mx,
+				row_number() over (partition by item_code, warehouse, posting_date
+					order by posting_time desc, creation desc) as rn
+			from `tabStock Ledger Entry`
+			where is_cancelled=0 and warehouse in %(whs)s
+				and posting_date between %(start)s and %(end)s"""
+		+ _items_clause(items)
+		+ """) t where rn=1""",
+		{"whs": _in(whs), "start": start, "end": end, "items": _in(items or [])},
+	)
+	out = {}
+	for item, wh, day, close, mx in rows:
+		out.setdefault((item, wh), {})[getdate(day)] = (flt(close), flt(mx))
+	return out
+
+
+def transfers_out(company, wh, others, start, end, items=None):
+	"""{item: {date: qty}} sent from `wh` to the company's other warehouses by
+	Material Transfer stock entries: what a main warehouse supplies to outlets
+	is its demand."""
+	if not others:
+		return {}
+	rows = frappe.db.sql(
+		"""select d.item_code, e.posting_date, sum(d.transfer_qty)
+		from `tabStock Entry Detail` d join `tabStock Entry` e on e.name = d.parent
+		where e.docstatus=1 and e.company=%(company)s and e.purpose='Material Transfer'
+			and e.posting_date between %(start)s and %(end)s
+			and d.s_warehouse=%(wh)s and d.t_warehouse in %(others)s"""
+		+ _items_clause(items, "d.item_code")
+		+ """ group by d.item_code, e.posting_date""",
+		{"company": company, "wh": wh, "others": _in(others), "start": start, "end": end, "items": _in(items or [])},
+	)
+	out = {}
+	for item, day, qty in rows:
+		out.setdefault(item, {})[getdate(day)] = flt(qty)
+	return out
+
+
+def busiest_feeder(company, whs, since):
+	"""The warehouse that sent the most stock to the company's other warehouses
+	by Material Transfer since `since`, or None. Used to find the main
+	warehouse when the shop has not named one."""
+	if len(whs) < 2:
+		return None
+	row = frappe.db.sql(
+		"""select d.s_warehouse, sum(d.transfer_qty) as q
+		from `tabStock Entry Detail` d join `tabStock Entry` e on e.name = d.parent
+		where e.docstatus=1 and e.company=%(company)s and e.purpose='Material Transfer'
+			and e.posting_date >= %(since)s and d.s_warehouse in %(whs)s and d.t_warehouse in %(whs)s
+			and d.s_warehouse != d.t_warehouse
+		group by d.s_warehouse order by q desc, d.s_warehouse limit 1""",
+		{"company": company, "whs": _in(whs), "since": since},
+	)
+	return row[0][0] if row else None
+
+
+def default_suppliers(company, items):
+	"""{item: supplier} from the Item Default row for this company."""
+	if not items:
+		return {}
+	rows = frappe.db.sql(
+		"""select parent, default_supplier from `tabItem Default`
+		where parenttype='Item' and company=%(company)s and parent in %(items)s
+			and ifnull(default_supplier, '') != ''""",
+		{"company": company, "items": _in(items)},
+	)
+	return dict(rows)
+
+
+def last_po_suppliers(company, items):
+	"""{item: supplier} of the most recent submitted Purchase Order for it."""
+	if not items:
+		return {}
+	rows = frappe.db.sql(
+		"""select item_code, supplier from (
+			select i.item_code, p.supplier,
+				row_number() over (partition by i.item_code
+					order by p.transaction_date desc, p.creation desc) as rn
+			from `tabPurchase Order Item` i join `tabPurchase Order` p on p.name = i.parent
+			where p.docstatus=1 and p.company=%(company)s and i.item_code in %(items)s
+		) t where rn=1""",
+		{"company": company, "items": _in(items)},
+	)
+	return dict(rows)
+
+
+def lead_samples(company, since):
+	"""{supplier: [days, ...]} newest first: Purchase Order date to Purchase
+	Receipt date, for receipts made against an order since `since`."""
+	rows = frappe.db.sql(
+		"""select distinct po.supplier, pr.name, po.name, pr.posting_date, po.transaction_date
+		from `tabPurchase Receipt Item` i
+			join `tabPurchase Receipt` pr on pr.name = i.parent
+			join `tabPurchase Order` po on po.name = i.purchase_order
+		where pr.docstatus=1 and pr.is_return=0 and pr.company=%(company)s
+			and pr.posting_date >= %(since)s and ifnull(i.purchase_order, '') != ''
+		order by pr.posting_date desc, pr.name""",
+		{"company": company, "since": since},
+	)
+	out = {}
+	for supplier, _pr, _po, received, ordered in rows:
+		days = (getdate(received) - getdate(ordered)).days
+		if days >= 0:
+			out.setdefault(supplier, []).append(days)
+	return out

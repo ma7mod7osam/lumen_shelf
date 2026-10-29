@@ -1,0 +1,5 @@
+Copyright (c) 2026 Lumen Solutions. All rights reserved.
+
+This software is proprietary and confidential. The terms it is licensed under
+are still to be decided by its owner. Until then no licence to use, copy,
+modify or distribute it is granted.

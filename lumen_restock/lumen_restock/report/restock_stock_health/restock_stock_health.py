@@ -41,11 +41,11 @@ def execute(filters=None):
 
 def columns():
 	return [
-		{"fieldname": "item_code", "label": _("Item"), "fieldtype": "Link", "options": "Item", "width": 140},
+		{"fieldname": "item_code", "label": _("Item Code"), "fieldtype": "Link", "options": "Item", "width": 140},
 		{"fieldname": "item_name", "label": _("Item Name"), "fieldtype": "Data", "width": 180},
 		{"fieldname": "warehouse", "label": _("Warehouse"), "fieldtype": "Link", "options": "Warehouse", "width": 160},
 		{"fieldname": "abc", "label": _("ABC"), "fieldtype": "Data", "width": 60},
-		{"fieldname": "status", "label": _("Status"), "fieldtype": "Data", "width": 100},
+		{"fieldname": "status", "label": _("Status"), "fieldtype": "Data", "width": 115},
 		{"fieldname": "on_shelf", "label": _("On shelf"), "fieldtype": "Float", "width": 90},
 		{"fieldname": "daily_sales", "label": _("Daily sales"), "fieldtype": "Float", "precision": 2, "width": 95},
 		{"fieldname": "days_left", "label": _("Days left"), "fieldtype": "Float", "precision": 1, "width": 85},

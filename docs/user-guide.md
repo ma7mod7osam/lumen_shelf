@@ -56,7 +56,8 @@ Per outlet, the items that will run out before a new delivery can arrive.
 | Lead time (days) | How long the restock takes |
 | Days in stock | How many days of history the figures rest on |
 
-Days left shows red when it is shorter than the lead time.
+Days left shows red when it is shorter than the lead time, amber otherwise.
+Quantities that are zero are left blank.
 
 ### Transfer suggestions (Restock Transfers)
 
@@ -78,6 +79,8 @@ value, B = the next 15%, C = the rest), and a status:
   than the outlet needs. Excess qty and value show how much.
 - **Too new**: not enough days in stock to judge yet.
 - **OK**.
+
+Days left shows **365+** when what is on the shelf lasts more than a year.
 
 ## 3. How the numbers are worked out
 

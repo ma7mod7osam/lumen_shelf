@@ -31,7 +31,7 @@ def execute(filters=None):
 		{
 			"label": _("To where it sells"),
 			"value": sum(1 for r in rows if r["reason_key"] == engine.REASON_FASTER),
-			"indicator": "Green",
+			"indicator": "Blue",
 			"datatype": "Int",
 		},
 	]
@@ -40,13 +40,13 @@ def execute(filters=None):
 
 def columns():
 	return [
-		{"fieldname": "item_code", "label": _("Item"), "fieldtype": "Link", "options": "Item", "width": 140},
+		{"fieldname": "item_code", "label": _("Item Code"), "fieldtype": "Link", "options": "Item", "width": 140},
 		{"fieldname": "item_name", "label": _("Item Name"), "fieldtype": "Data", "width": 180},
 		{"fieldname": "from_warehouse", "label": _("From warehouse"), "fieldtype": "Link", "options": "Warehouse", "width": 160},
 		{"fieldname": "to_warehouse", "label": _("To warehouse"), "fieldtype": "Link", "options": "Warehouse", "width": 160},
 		{"fieldname": "qty", "label": _("Qty"), "fieldtype": "Float", "width": 80},
 		{"fieldname": "stock_uom", "label": _("UOM"), "fieldtype": "Data", "width": 70},
-		{"fieldname": "reason", "label": _("Reason"), "fieldtype": "Data", "width": 150},
+		{"fieldname": "reason", "label": _("Reason"), "fieldtype": "Data", "width": 175},
 		{"fieldname": "from_on_shelf", "label": _("On shelf at source"), "fieldtype": "Float", "width": 125},
 		{"fieldname": "from_daily_sales", "label": _("Daily sales at source"), "fieldtype": "Float", "precision": 2, "width": 140},
 		{"fieldname": "to_on_shelf", "label": _("On shelf at destination"), "fieldtype": "Float", "width": 150},

@@ -44,7 +44,7 @@ frappe.query_reports["Restock Transfers"] = {
 			value = `<span style="font-weight: 600">${value}</span>`;
 		}
 		if (column.fieldname === "reason") {
-			const cls = data.reason_key === "running_low" ? "text-danger" : "text-success";
+			const cls = data.reason_key === "running_low" ? "text-danger" : "text-primary";
 			value = `<span class="${cls}">${value}</span>`;
 		}
 		return value;

@@ -276,6 +276,10 @@ class TestTransfers(RestockCase):
 	def test_no_transfer_without_history(self):
 		self.assertLess(self.pair("X4", "O2")["in_stock_days"], 28)
 		self.assertFalse(self.lines("X4", from_warehouse="O2"))
+		# nor to cover a shortage: O3 is short of X6, O2 has it but too new
+		self.assertTrue(self.pair("X6", "O3")["low"])
+		self.assertFalse(self.lines("X6", from_warehouse="O2"))
+		self.assertTrue(self.lines("X6", kind="buy", to_warehouse="O3"))
 
 	def test_sells_faster_needs_twice_the_speed(self):
 		o2, o3 = self.pair("X5", "O2"), self.pair("X5", "O3")

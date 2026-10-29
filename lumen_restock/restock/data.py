@@ -159,27 +159,51 @@ def sales(company, whs, start, end, items=None):
 	return out
 
 
+def _by_datetime():
+	"""ERPNext v15 and later keep posting_datetime on every Stock Ledger Entry
+	and index (item_code, warehouse, posting_datetime, creation). Older
+	versions order by posting_date, posting_time, creation."""
+	import erpnext
+
+	major = int(str(getattr(erpnext, "__version__", "13")).split(".")[0] or 13)
+	return major >= 15 and frappe.db.has_column("Stock Ledger Entry", "posting_datetime")
+
+
+# ERPNext's own order of the Stock Ledger, newest first
+ORDER_NEW = "s.posting_datetime desc, s.creation desc"
+ORDER_OLD = "s.posting_date desc, s.posting_time desc, s.creation desc"
+
+
 def ledger_opening(whs, start, items=None):
 	"""{(item, warehouse): qty} on the shelf just before `start`: the last
-	Stock Ledger Entry before it, in ERPNext's own order (posting date, posting
-	time, creation)."""
+	Stock Ledger Entry before it, in ERPNext's own order. One indexed lookup
+	per Bin row, never a sort of the whole history."""
+	if _by_datetime():
+		before, order = "s.posting_datetime < %(start)s", ORDER_NEW
+	else:
+		before, order = "s.posting_date < %(start)s", ORDER_OLD
 	rows = frappe.db.sql(
-		"""select item_code, warehouse, qty_after_transaction from (
-			select item_code, warehouse, qty_after_transaction,
-				row_number() over (partition by item_code, warehouse
-					order by posting_date desc, posting_time desc, creation desc) as rn
-			from `tabStock Ledger Entry`
-			where is_cancelled=0 and warehouse in %(whs)s and posting_date < %(start)s"""
-		+ _items_clause(items)
-		+ """) t where rn=1""",
+		"""select b.item_code, b.warehouse,
+			(select s.qty_after_transaction from `tabStock Ledger Entry` s
+				where s.item_code = b.item_code and s.warehouse = b.warehouse
+					and s.is_cancelled = 0 and {before}
+				order by {order} limit 1) as q
+		from `tabBin` b where b.warehouse in %(whs)s""".format(before=before, order=order)
+		+ _items_clause(items, "b.item_code"),
 		{"whs": _in(whs), "start": start, "items": _in(items or [])},
 	)
-	return {(i, w): flt(q) for i, w, q in rows}
+	return {(i, w): flt(q) for i, w, q in rows if q is not None}
 
 
 def ledger_days(whs, start, end, items=None):
 	"""{(item, warehouse): {date: (closing qty, highest qty that day)}} for
 	days with a Stock Ledger movement inside the window."""
+	if _by_datetime():
+		span = "posting_datetime >= %(start)s and posting_datetime < %(after)s"
+	else:
+		span = "posting_date between %(start)s and %(end)s"
+	import datetime
+
 	rows = frappe.db.sql(
 		"""select item_code, warehouse, posting_date, qty_after_transaction, mx from (
 			select item_code, warehouse, posting_date, qty_after_transaction,
@@ -187,11 +211,16 @@ def ledger_days(whs, start, end, items=None):
 				row_number() over (partition by item_code, warehouse, posting_date
 					order by posting_time desc, creation desc) as rn
 			from `tabStock Ledger Entry`
-			where is_cancelled=0 and warehouse in %(whs)s
-				and posting_date between %(start)s and %(end)s"""
+			where is_cancelled=0 and warehouse in %(whs)s and {span}""".format(span=span)
 		+ _items_clause(items)
 		+ """) t where rn=1""",
-		{"whs": _in(whs), "start": start, "end": end, "items": _in(items or [])},
+		{
+			"whs": _in(whs),
+			"start": start,
+			"end": end,
+			"after": getdate(end) + datetime.timedelta(days=1),
+			"items": _in(items or []),
+		},
 	)
 	out = {}
 	for item, wh, day, close, mx in rows:

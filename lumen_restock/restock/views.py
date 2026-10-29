@@ -39,6 +39,11 @@ def _r(x, n=2):
 	return None if x is None else round(flt(x), n)
 
 
+def _q(x):
+	"""A quantity, blank when there is none, so the eye goes to what matters."""
+	return round(flt(x), 3) or None
+
+
 def _visible(allowed, *warehouses):
 	if allowed is None:
 		return True
@@ -100,16 +105,16 @@ def running_low(result, allowed, warehouse=None, item_group=None, source=None):
 				"on_shelf": _r(p["on_shelf"], 3),
 				"daily_sales": _r(p["speed"], 3),
 				"days_left": _r(p["days_left"], 1),
-				"on_order": _r(p["on_order"], 3),
+				"on_order": _q(p["on_order"]),
 				"reorder_point": _r(p["rop"], 2),
 				"target": _r(p["target"], 2),
 				"suggested_qty": _r(transfer_qty + wait_qty + buy_qty, 3),
 				"stock_uom": p["stock_uom"],
 				"source_key": src,
 				"source": _(SOURCE_LABELS[src]),
-				"transfer_qty": _r(transfer_qty + wait_qty, 3),
+				"transfer_qty": _q(transfer_qty + wait_qty),
 				"transfer_from": ", ".join(sorted({l["from_warehouse"] for l in moves + waits})),
-				"buy_qty": _r(buy_qty, 3),
+				"buy_qty": _q(buy_qty),
 				"supplier": buys[0]["supplier"] if buys else None,
 				"purchase_qty": _r(purchase_qty, 3) if buys else None,
 				"purchase_uom": p["purchase_uom"] if buys else None,

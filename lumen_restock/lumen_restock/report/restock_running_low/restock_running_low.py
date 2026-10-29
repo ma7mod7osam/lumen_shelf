@@ -20,7 +20,7 @@ def execute(filters=None):
 	n_transfer = sum(1 for r in rows if r["transfer_qty"])
 	n_buy = sum(1 for r in rows if r["buy_qty"])
 	summary = [
-		{"label": _("Items running low"), "value": len(rows), "indicator": "Red" if rows else "Green", "datatype": "Int"},
+		{"label": _("Items running low"), "value": len(rows), "indicator": "Red" if rows else "Gray", "datatype": "Int"},
 		{"label": _("To transfer"), "value": n_transfer, "indicator": "Blue", "datatype": "Int"},
 		{"label": _("To buy"), "value": n_buy, "indicator": "Orange", "datatype": "Int"},
 	]
@@ -29,7 +29,7 @@ def execute(filters=None):
 
 def columns():
 	return [
-		{"fieldname": "item_code", "label": _("Item"), "fieldtype": "Link", "options": "Item", "width": 140},
+		{"fieldname": "item_code", "label": _("Item Code"), "fieldtype": "Link", "options": "Item", "width": 140},
 		{"fieldname": "item_name", "label": _("Item Name"), "fieldtype": "Data", "width": 180},
 		{"fieldname": "warehouse", "label": _("Warehouse"), "fieldtype": "Link", "options": "Warehouse", "width": 160},
 		{"fieldname": "on_shelf", "label": _("On shelf"), "fieldtype": "Float", "width": 90},

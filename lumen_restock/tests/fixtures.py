@@ -19,7 +19,7 @@ import frappe
 from frappe.utils import add_days, getdate, nowdate
 
 DATASET_KEY = "lumen_restock_test_dataset"
-DATASET_VERSION = 9
+DATASET_VERSION = 12
 
 WAREHOUSES = {
 	"O1": "RS Out1",
@@ -62,11 +62,11 @@ def cc(company):
 	return frappe.get_cached_value("Company", company, "cost_center")
 
 
-def make_company(suffix):
+def make_company(suffix, abbr=None):
 	if not frappe.db.exists("Warehouse Type", "Transit"):
 		frappe.get_doc({"doctype": "Warehouse Type", "name": "Transit", "__newname": "Transit"}).insert(ignore_permissions=True)
 	name = "RS Test %s" % suffix
-	abbr = "R" + suffix[:4].upper()
+	abbr = abbr or ("R" + suffix[:4].upper())
 	if not frappe.db.exists("Company", name):
 		frappe.get_doc(
 			{
@@ -318,6 +318,10 @@ def product_bundle(parent, part, qty):
 
 
 def pos_setup(company, abbr, warehouse, suffix):
+	# ERPNext v16 defaults the till to Sales Invoice mode. The POS Invoice path is
+	# the one with consolidation, so the tests use it.
+	if frappe.get_meta("POS Settings").has_field("invoice_type"):
+		frappe.db.set_single_value("POS Settings", "invoice_type", "POS Invoice")
 	mop = frappe.get_doc("Mode of Payment", "Cash")
 	if not any(a.company == company for a in mop.accounts):
 		mop.append("accounts", {"company": company, "default_account": "Cash - %s" % abbr})
@@ -345,6 +349,11 @@ def pos_setup(company, abbr, warehouse, suffix):
 
 
 def pos_open(company, profile, day):
+	"""Open the till. ERPNext v16 wants the opening dated today (backdated
+	invoices are still accepted) and one open entry per cashier, so earlier
+	test openings of this user are cancelled first."""
+	for name in frappe.get_all("POS Opening Entry", filters={"user": frappe.session.user, "status": "Open", "docstatus": 1}, pluck="name"):
+		frappe.get_doc("POS Opening Entry", name).cancel()
 	op = frappe.get_doc(
 		{
 			"doctype": "POS Opening Entry",
@@ -436,7 +445,7 @@ def build():
 
 	it = {}
 	for n in ("A1", "A2", "A4", "A6", "P1", "K1", "R1", "ON1", "SO1", "L3",
-			"X1", "X2", "X3", "X4", "X5", "X7", "B1", "B2", "B3", "B4", "H1", "H2", "H3", "H4", "Z1"):
+			"X1", "X2", "X3", "X4", "X5", "X6", "X7", "B1", "B2", "B3", "B4", "H1", "H2", "H3", "H4", "Z1"):
 		it[n] = make_item(code(n), company)
 	it["A3"] = make_item(code("A3"), company, purchase_uom="Box", factor=6)
 	it["A5"] = make_item(code("A5"), company, purchase_uom="Box", factor=6, min_order=24)
@@ -513,6 +522,10 @@ def build():
 	on(rec, 10, (it["X4"], wh["O2"], 30))
 	on(rec, 60, (it["X4"], wh["O3"], 66))
 	sell("X4", "O3", every_day(56, 1), 1)
+	# too new in O2 (10 days), while O3 runs low: O2 must not give, O3 buys
+	on(rec, 10, (it["X6"], wh["O2"], 30))
+	on(rec, 60, (it["X6"], wh["O3"], 60))
+	sell("X6", "O3", every_day(56, 1), 1)
 	on(rec, 70, (it["X5"], wh["O2"], 100))
 	sell("X5", "O2", every_day(56, 2, 2), 1)
 	on(rec, 60, (it["X5"], wh["O3"], 55))
@@ -562,7 +575,7 @@ def build():
 		if n in pos_days:
 			if profile is None:
 				profile = pos_setup(company, abbr, wh["O1"], suffix)
-				pos_open(company, profile, d(11))
+				pos_open(company, profile, today())
 			qty = 3 if n == 1 else 2
 			inv = pos_invoice(company, profile, customer, [(it["P1"], wh["O1"], qty, 10)], day)
 			out["pos"][n] = inv
@@ -588,17 +601,58 @@ def build():
 		"pos_invoices": out["pos"],
 		"pos_profile": profile,
 	}
+	check_ledger_chain(company)
 	frappe.db.set_global(DATASET_KEY, frappe.as_json(ds))
 	frappe.db.commit()
 	return ds
 
 
+def check_ledger_chain(company):
+	"""Stop if ERPNext's running balance does not add up.
+
+	ERPNext chains each ledger row to the one before by posting time, then
+	creation. If the machine clock steps back while the data is built (seen
+	once right after WSL restarted), a later row gets an earlier creation and
+	the balances chain wrong. Every figure test would then fail for a reason
+	that is not ours, so fail here with the reason instead.
+	"""
+	off = frappe.db.sql(
+		"""select count(*) from (
+			select qty_after_transaction q, sum(actual_qty) over (
+				partition by item_code, warehouse
+				order by posting_date, posting_time, creation
+			) s
+			from `tabStock Ledger Entry` where company=%s and is_cancelled=0
+		) x where abs(q - s) > 0.0001""",
+		company,
+	)[0][0]
+	if off:
+		frappe.db.rollback()
+		raise BrokenLedger(
+			"Test data broken: %s Stock Ledger rows do not add up. "
+			"The clock probably stepped back while building." % off
+		)
+
+
+class BrokenLedger(AssertionError):
+	pass
+
+
 def dataset():
 	"""Today's dataset, built if missing."""
+	from lumen_restock.tests.bootstrap import before_tests
+
+	before_tests()  # Frappe v16 runs app before_tests hooks for its own test class only
 	raw = frappe.db.get_global(DATASET_KEY)
 	if raw:
 		ds = frappe.parse_json(raw)
 		if ds.get("version") == DATASET_VERSION and ds.get("date") == str(today()) and frappe.db.exists("Company", ds["company"]):
 			return frappe._dict(ds)
-	# through JSON, so a fresh build reads exactly like a reused one
-	return frappe._dict(frappe.parse_json(frappe.as_json(build())))
+	# through JSON, so a fresh build reads exactly like a reused one.
+	# A build broken by the clock (see check_ledger_chain) is tried again.
+	for attempt in range(3):
+		try:
+			return frappe._dict(frappe.parse_json(frappe.as_json(build())))
+		except BrokenLedger:
+			if attempt == 2:
+				raise

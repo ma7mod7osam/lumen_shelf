@@ -49,7 +49,7 @@ class TestAccess(unittest.TestCase):
 		if not frappe.db.exists("Role", "RS Till Manager"):
 			frappe.get_doc({"doctype": "Role", "role_name": "RS Till Manager", "desk_access": 1}).insert(ignore_permissions=True)
 		cls.hooked = make_user("rs-hooked-%s@example.com" % sfx, ["Stock User", "RS Till Manager"])
-		other, _abbr = fixtures.make_company("other" + sfx[:3])
+		other, _abbr = fixtures.make_company("other " + sfx, abbr="O" + sfx[:5].upper())
 		cls.other_company = other
 		cls.elsewhere = make_user("rs-elsewhere-%s@example.com" % sfx, ["Stock User", "Restock User"])
 		limit(cls.elsewhere, "Company", other)

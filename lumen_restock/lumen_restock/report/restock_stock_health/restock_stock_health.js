@@ -45,9 +45,13 @@ frappe.query_reports["Restock Stock Health"] = {
 				"No sales": "text-danger",
 				Slow: "text-warning",
 				Overstock: "text-warning",
-				OK: "text-success",
+				OK: "text-muted",
 			}[data.status_key];
 			if (cls) value = `<span class="${cls}" style="font-weight: 600">${value}</span>`;
+		}
+		if (column.fieldname === "days_left" && data.days_left > 365) {
+			// a year or more of stock: the exact figure is noise
+			value = `<div style="text-align: right"><bdi dir="ltr">365+</bdi></div>`;
 		}
 		if (column.fieldname === "abc" && data.abc === "A") {
 			value = `<span style="font-weight: 700">${value}</span>`;

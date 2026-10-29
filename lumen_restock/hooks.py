@@ -25,6 +25,10 @@ after_install = "lumen_restock.install.after_install"
 before_migrate = "lumen_restock.install.before_migrate"
 after_migrate = "lumen_restock.install.after_migrate"
 
+# Tests only: complete ERPNext's setup on a bare test site (Frappe v16 runs
+# just the tested app's before_tests hooks).
+before_tests = "lumen_restock.tests.bootstrap.before_tests"
+
 # Phase 1 is read only: no doc_events, no scheduler, no overrides.
 #
 # Other apps may name extra roles that can see the restock lists, for the

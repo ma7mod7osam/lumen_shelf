@@ -1,5 +1,8 @@
 Copyright (c) 2026 Lumen Solutions. All rights reserved.
 
-This software is proprietary and confidential. The terms it is licensed under
-are still to be decided by its owner. Until then no licence to use, copy,
-modify or distribute it is granted.
+Lumen Shelf is proprietary and confidential software. It is licensed, not
+sold. It may be installed and used only under a written licence or
+subscription from Lumen Solutions, and only within the terms of that licence.
+
+Without such a licence, no right is granted to use, copy, modify, merge,
+publish, distribute, sublicense or sell this software or any part of it.

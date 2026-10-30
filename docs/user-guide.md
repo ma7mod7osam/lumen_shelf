@@ -192,6 +192,7 @@ The contract, version 1 (`lumen_shelf.api`):
 
 - First version, phase 1, read only.
 - Named Lumen Shelf by the owner (called Lumen Restock while it was built).
+- Proprietary licence (closed source), see license.txt.
 - Daily sales per item and outlet, weighted to recent weeks, days out of stock
   left out, from POS Invoices and Sales Invoices without double counting.
 - Days left, lead times learned per supplier, safety stock, reorder point,

@@ -46,7 +46,7 @@ def columns():
 		{"fieldname": "to_warehouse", "label": _("To warehouse"), "fieldtype": "Link", "options": "Warehouse", "width": 160},
 		{"fieldname": "qty", "label": _("Qty"), "fieldtype": "Float", "width": 80},
 		{"fieldname": "stock_uom", "label": _("UOM"), "fieldtype": "Data", "width": 70},
-		{"fieldname": "reason", "label": _("Reason"), "fieldtype": "Data", "width": 175},
+		{"fieldname": "reason", "label": _("Reason"), "fieldtype": "Data", "width": 210},
 		{"fieldname": "from_on_shelf", "label": _("On shelf at source"), "fieldtype": "Float", "width": 125},
 		{"fieldname": "from_daily_sales", "label": _("Daily sales at source"), "fieldtype": "Float", "precision": 2, "width": 140},
 		{"fieldname": "to_on_shelf", "label": _("On shelf at destination"), "fieldtype": "Float", "width": 150},

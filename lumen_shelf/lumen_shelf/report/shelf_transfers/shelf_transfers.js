@@ -44,8 +44,13 @@ frappe.query_reports["Shelf Transfers"] = {
 			value = `<span style="font-weight: 600">${value}</span>`;
 		}
 		if (column.fieldname === "reason") {
-			const cls = data.reason_key === "running_low" ? "text-danger" : "text-primary";
-			value = `<span class="${cls}">${value}</span>`;
+			// Not "text-primary": on Frappe v16 that is the body text colour, so it
+			// reads black, and in dark mode black on black. Blue from the theme,
+			// Lumen blue when the theme has none.
+			value =
+				data.reason_key === "running_low"
+					? `<span class="text-danger">${value}</span>`
+					: `<span style="color: var(--blue-500, #1463FF)">${value}</span>`;
 		}
 		return value;
 	},

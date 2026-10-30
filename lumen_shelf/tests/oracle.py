@@ -138,6 +138,8 @@ def figures(item, warehouse, as_of, weeks, sold, extra_demand=None):
 	sigma = statistics.stdev(values) if len(values) > 1 else 0.0
 	return frappe._dict(
 		in_stock_days=len(stocked),
+		stocked=set(stocked),
+		sold_qty_window=sum(v[0] for k, v in sold.get((item, warehouse), {}).items() if start <= k <= end),
 		speed=max(speed, 0.0),
 		sigma=sigma,
 		sold_qty=sum(v[0] for v in sold.get((item, warehouse), {}).values()),
@@ -149,3 +151,43 @@ def levels(speed, sigma, lead, z, cover):
 	safety = z * sigma * math.sqrt(lead)
 	rop = speed * lead + safety
 	return frappe._dict(safety=safety, rop=rop, target=rop + speed * cover)
+
+
+# ---- 0.2.0, written from the user guide's wording
+
+
+def qty_between(sold, keys, start, end):
+	"""Units of `keys` (item, warehouse) sold from start to end, both included."""
+	total = 0.0
+	for key in keys:
+		for day, v in sold.get(key, {}).items():
+			if start <= day <= end:
+				total += v[0]
+	return total
+
+
+def season_ratio(sold, keys, ref, weeks, ahead_weeks):
+	"""Last year: units a week over the `ahead_weeks` from `ref` on, divided by
+	units a week over the `weeks` before `ref`. Kept between 0.25 and 4."""
+	base = qty_between(sold, keys, ref - datetime.timedelta(days=7 * weeks), ref - datetime.timedelta(days=1))
+	ahead = qty_between(sold, keys, ref, ref + datetime.timedelta(days=7 * ahead_weeks - 1))
+	if base <= 0:
+		return None, base
+	return min(max((ahead / ahead_weeks) / (base / weeks), 0.25), 4.0), base
+
+
+def company_week(sold, ref, k):
+	"""Company units in week k before `ref` (week 0 = the 7 days before it)."""
+	end = ref - datetime.timedelta(days=7 * k + 1)
+	return qty_between(sold, list(sold), end - datetime.timedelta(days=6), end)
+
+
+def stocked_days(item, warehouse, days, sold):
+	"""Which of `days` the item was in stock, by the same rule as figures()."""
+	out = []
+	for day in days:
+		opening = balance_end_of(item, warehouse, day - datetime.timedelta(days=1))
+		q = sold.get((item, warehouse), {}).get(day, [0.0])[0]
+		if opening > 1e-9 or highest_on(item, warehouse, day) > 1e-9 or abs(q) > 1e-9:
+			out.append(day)
+	return out

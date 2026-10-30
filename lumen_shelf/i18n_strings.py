@@ -37,6 +37,12 @@ EXTRA = [
 	"Transfer suggestions",
 	"Stock health",
 	"Restock",
+	"Rising",
+	"Falling",
+	"Gregorian",
+	"Hijri",
+	"Shelf Forecast Accuracy",
+	"Forecast accuracy",
 ]
 
 

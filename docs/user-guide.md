@@ -1,6 +1,6 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.1.0 (phase 1).
+*Applies to Lumen Shelf v0.2.0 (phase 1, with the smarter forecast).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
@@ -28,6 +28,11 @@ fill in. On the first day it uses these defaults:
 | Days in stock needed before judging an outlet | 28 |
 | Slow when stock lasts more than | 90 days |
 | Overstock when stock lasts more than | 60 days |
+| Adjust for seasons | On, calendar chosen automatically |
+| Show rising and falling items | On, from 30% |
+| Show lost sales | On |
+| Plan purchases within a budget | On |
+| Show forecast accuracy | On |
 
 The supplier comes from the item's **Item Defaults** for the company, or else
 from the item's most recent Purchase Order. The main warehouse is found on its
@@ -35,7 +40,7 @@ own (section 5). The settings page shows what was found.
 
 ## 2. The screens
 
-All three are ERPNext reports, so they sort, filter, export to Excel and print
+All four are ERPNext reports, so they sort, filter, export to Excel and print
 like any other report, in English or Arabic, light or dark.
 
 ### Running low (Shelf Running Low)
@@ -46,6 +51,8 @@ Per outlet, the items that will run out before a new delivery can arrive.
 |---|---|
 | On shelf | Stock in the warehouse (ERPNext's Bin) less what the tills sold that is not consolidated yet |
 | Daily sales | Average units sold per day the item was in stock |
+| Season effect | How much more (above 1) or less (below 1) sold last year in the weeks ahead. Blank when there is no season to learn from |
+| Expected daily sales | Daily sales x season effect. The reorder point and the suggestion use this |
 | Days left | On shelf divided by daily sales |
 | On order | Open Purchase Orders and open Material Requests (purchase and transfer) |
 | Reorder point | Below this, restock now |
@@ -56,7 +63,16 @@ Per outlet, the items that will run out before a new delivery can arrive.
 | Lead time (days) | How long the restock takes |
 | Days in stock | How many days of history the figures rest on |
 
-Days left shows red when it is shorter than the lead time, amber otherwise.
+Days left (on the expected daily sales) shows red when it is shorter than the
+lead time, amber otherwise.
+
+**Budget.** Type an amount in the Budget filter. The purchases are put in
+order: first what runs out within its lead time, then A items before B and C,
+then what loses the most profit a day while it is missing. **In budget** marks
+those that fit, with the running total. A purchase that does not fit is
+skipped, and a cheaper one after it may still fit. **Purchase cost** is the
+quantity x the item's last purchase rate, or its stock valuation rate if it has
+never been bought.
 Quantities that are zero are left blank.
 
 ### Transfer suggestions (Shelf Transfers)
@@ -81,6 +97,27 @@ value, B = the next 15%, C = the rest), and a status:
 - **OK**.
 
 Days left shows **365+** when what is on the shelf lasts more than a year.
+
+**Trend.** Rising or Falling compares the in-stock sales rate of the recent
+half of the history window (the last 4 weeks) with the earlier half. It needs
+at least 10 days in stock in each half and 10 units sold, and the change must
+reach the setting (30% by default). Change (%) shows the figure.
+
+**Lost sales** (outlets): the days an item was out of stock since it was first
+on the shelf in the window, x its daily sales = Lost qty, x its average selling
+price in the window = Lost sales. The total is at the top.
+
+### Forecast accuracy (Shelf Forecast Accuracy)
+
+What Lumen Shelf forecast 14 days ago for each outlet and item, against what
+was sold since. Only items that stayed in stock all 14 days count, so an empty
+shelf never reads as a bad forecast.
+
+- **Accuracy** = 1 - (sum of the differences, all made positive) / units sold.
+- **Forecast above (or below) sales by**: (forecast - sold) / sold, the
+  overall lean of the forecast.
+- **Plain average accuracy**: the same for a plain average (sales of the
+  window / its days), so you can see what the smarter forecast gains.
 
 ## 3. How the numbers are worked out
 
@@ -108,6 +145,27 @@ An item that sells exactly the same every day needs none.
 is on the shelf and on order, plus what is promised to Sales Orders. A purchase
 is rounded up to the item's purchase unit (for example boxes of 6) and to its
 minimum order quantity. A transfer is rounded down to whole units.
+
+**Seasons.** Lumen Shelf looks at the same item a year ago: its sales over the
+weeks ahead (lead time + days of cover, in whole weeks, 1 to 13) against its
+sales over the weeks of the history window. If last year sold 3 times as much
+in the weeks ahead, the season effect is 3. It is kept between 0.25 and 4.
+
+- An item needs 20 units sold last year in those window weeks for its own
+  season. Otherwise it takes its item group's (50 units needed). Otherwise
+  there is no season effect.
+- **Seasons follow**: Gregorian looks back 364 days (the same weekday), for
+  dates that repeat every year. Hijri looks back 354 days (one Hijri year), for
+  Ramadan and Eid. **Choose automatically** (default) tries both on the
+  company's last 8 weeks, 2 weeks at a time, from the 8 weeks before each, and
+  uses the one that came closest, if it beats leaving seasons out. The report
+  says which one is used.
+- Nothing is assumed about the country or religion: the shop's own history
+  decides. A shop with less than a year of history has no season effect yet.
+
+Seasons change the expected daily sales, the reorder point, the suggestion and
+days left. Slow, overstock and the "sells faster there" transfers stay on the
+history, what really sold.
 
 ## 4. Where a shortage is filled from
 
@@ -141,7 +199,9 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
 **Lumen Shelf Settings**. Every field is optional.
 
 - **Enabled** switches the whole app off for everyone.
-- **Suggest transfers between outlets** and **Show stock health** switch those
+- **Suggest transfers between outlets**, **Show stock health**, **Adjust for
+  seasons**, **Show rising and falling items**, **Show lost sales**, **Plan
+  purchases within a budget** and **Show forecast accuracy** switch those
   parts off.
 - **Warehouse roles** (optional): name the main warehouse per company, or leave
   a warehouse out.
@@ -187,6 +247,19 @@ The contract, version 1 (`lumen_shelf.api`):
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.2.0 (2026-10-31)
+
+- Seasons learned from last year's sales, on the Gregorian or the Hijri
+  calendar, chosen automatically from what predicted the last 8 weeks best.
+  New columns Season effect and Expected daily sales.
+- Rising and falling items, with the change in percent.
+- Sales lost while items were out of stock, per outlet, in money.
+- A budget filter on Running low: purchases ranked by urgency and value, and
+  which fit. Purchase cost on every purchase.
+- New report Forecast accuracy: the forecast of 14 days ago against what sold,
+  next to a plain average.
+- A switch for each in the settings.
 
 ### 0.1.0 (2026-10-29)
 

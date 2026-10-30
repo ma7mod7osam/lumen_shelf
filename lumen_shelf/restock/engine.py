@@ -51,6 +51,15 @@ STATUS_NO_SALES = "No sales"
 STATUS_SLOW = "Slow"
 STATUS_OVERSTOCK = "Overstock"
 
+TREND_RISING = "Rising"
+TREND_FALLING = "Falling"
+
+# Last year's same weeks, per calendar: 364 days keeps the weekdays, 354 days
+# is one Hijri year (Ramadan and Eid move about 11 days a year on the other).
+SEASON_SHIFT = {st.CAL_GREGORIAN: 364, st.CAL_HIJRI: 354}
+BACKTEST_WINDOWS = 4  # windows of 2 weeks, the last 8 weeks
+ACCURACY_DAYS = 14
+
 
 def _cache_key(company, as_of, items, s):
 	blob = json.dumps(
@@ -136,6 +145,9 @@ def _compute(company, as_of, items, s):
 	default_sup = data.default_suppliers(company, codes)
 	last_sup = data.last_po_suppliers(company, codes)
 	samples = data.lead_samples(company, as_of - datetime.timedelta(days=LEAD_LOOKBACK_DAYS))
+	seasons = _seasons(company, usable, as_of, weeks, items, s)
+	result["season"] = {"calendar": seasons.calendar, "basis": seasons.basis, "errors": seasons.errors}
+	threshold = s["trend_threshold"] / 100.0
 
 	def buy_lead(item):
 		sup = default_sup.get(item) or last_sup.get(item)
@@ -162,6 +174,13 @@ def _compute(company, as_of, items, s):
 		stocked = model.in_stock_days(days, opening.get((item, wh), 0.0), ledger.get((item, wh), {}), demand)
 		speed, sigma, n = model.speed_and_sigma(days, stocked, demand, end, weeks)
 		supplier, lead_buy, lead_basis = buy_lead(item)
+		sold_qty = sum(sold_by_day.values())
+		sales_value = sum(v[1] for v in by_day.values())
+		tr = model.trend(days, stocked, sold_by_day) if s["trends"] else None
+		lost_qty = lost_value = 0.0
+		if s["lost_sales"] and wh != main and speed > model.EPS:
+			lost_qty = speed * model.out_of_stock_days(days, stocked)
+			lost_value = lost_qty * (sales_value / sold_qty if sold_qty > model.EPS else 0.0)
 		pairs[(item, wh)] = {
 			"item_code": item,
 			"item_name": it.item_name,
@@ -179,9 +198,22 @@ def _compute(company, as_of, items, s):
 			"on_order": on_order,
 			"so_reserved": so_reserved,
 			"position": on_shelf + on_order - so_reserved,
-			"sold_qty": sum(sold_by_day.values()),
-			"sales_value": sum(v[1] for v in by_day.values()),
+			"sold_qty": sold_qty,
+			"sales_value": sales_value,
 			"in_stock_days": n,
+			"plain_speed": sold_qty / float(len(days)),
+			"stocked_last": sum(1 for d in days[-ACCURACY_DAYS:] if d in stocked),
+			"trend": tr,
+			"trend_status": (
+				TREND_RISING
+				if tr is not None and tr >= threshold - model.EPS
+				else TREND_FALLING
+				if tr is not None and tr <= -threshold + model.EPS
+				else ""
+			),
+			"lost_qty": lost_qty,
+			"lost_value": lost_value,
+			"unit_cost": flt(it.last_purchase_rate) or flt(b.get("valuation_rate")),
 			"speed": speed,
 			"sigma": sigma,
 			"supplier": supplier,
@@ -204,7 +236,7 @@ def _compute(company, as_of, items, s):
 			p["plan"], lead = "transfer", float(s["transfer_lead_time"])
 		else:
 			p["plan"], lead = "buy", p["lead_buy"]
-		_levels(p, lead, z, cover)
+		_levels(p, lead, z, cover, seasons=seasons)
 
 	# 2. the main warehouse: what it can give now, beyond what its own sales need
 	if main:
@@ -212,6 +244,8 @@ def _compute(company, as_of, items, s):
 			if wh != main:
 				continue
 			own_speed, own_sigma, _n = model.speed_and_sigma(days, p["_stocked"], p["_sold_by_day"], end, weeks)
+			f, _basis = seasons.factor(item, p["item_group"], p["lead_buy"] + cover)
+			own_speed, own_sigma = own_speed * f, own_sigma * f
 			own_rop = model.reorder_point(own_speed, p["lead_buy"], model.safety_stock(z, own_sigma, p["lead_buy"]))
 			own_target = model.order_up_to(own_rop, own_speed, cover)
 			p["spare"] = model.round_surplus(p["on_shelf"] - p["so_reserved"] - own_target, p["whole"])
@@ -305,7 +339,7 @@ def _compute(company, as_of, items, s):
 		# 5. the main warehouse buys for itself and for what it sends out
 		if mp:
 			sent = sum(l["qty"] for l in lines if l["item_code"] == item and l["from_warehouse"] == main)
-			_levels(mp, mp["lead_buy"], z, cover, position=mp["position"] - sent)
+			_levels(mp, mp["lead_buy"], z, cover, position=mp["position"] - sent, seasons=seasons)
 			mp["plan"] = "buy"
 			if mp["low"] or mp["position_after"] < -model.EPS:
 				mp["low"] = 1
@@ -319,20 +353,118 @@ def _compute(company, as_of, items, s):
 	for p in pairs.values():
 		p.pop("_sold_by_day", None)
 		p.pop("_stocked", None)
-		p["days_left"] = model.days_left(p["on_shelf"], p["speed"])
+		p["days_left"] = model.days_left(p["on_shelf"], p.get("forecast", p["speed"]))
 	result["pairs"] = [pairs[k] for k in sorted(pairs)]
 	result["lines"] = lines
 	return result
 
 
-def _levels(p, lead, z, cover, position=None):
+class Seasons:
+	"""Last year's weekly sales, and the factor they give an item for the weeks
+	ahead. Off, or with no history, every factor is 1."""
+
+	def __init__(self, calendar=None, basis="off", weeks=8, ly=None, groups=None, errors=None):
+		self.calendar = calendar
+		self.basis = basis
+		self.weeks = weeks
+		self.ly = ly or {}
+		self.errors = errors or {}
+		self.group_ly = {}
+		for item, by_week in self.ly.items():
+			g = (groups or {}).get(item)
+			if g:
+				cell = self.group_ly.setdefault(g, {})
+				for k, q in by_week.items():
+					cell[k] = cell.get(k, 0.0) + q
+
+	def _factor(self, by_week, hw, minimum):
+		base = sum(by_week.get(k, 0.0) for k in range(self.weeks))
+		if base < minimum - model.EPS:
+			return None
+		ahead = sum(by_week.get(-1 - j, 0.0) for j in range(hw))
+		return model.season_factor(base, self.weeks, ahead, hw)
+
+	def factor(self, item, group, horizon_days):
+		"""(factor, "item" | "group" | None)"""
+		if not self.calendar:
+			return 1.0, None
+		hw = model.horizon_weeks(horizon_days)
+		f = self._factor(self.ly.get(item, {}), hw, model.SEASON_MIN_ITEM)
+		if f is not None:
+			return f, "item"
+		f = self._factor(self.group_ly.get(group, {}), hw, model.SEASON_MIN_GROUP)
+		if f is not None:
+			return f, "group"
+		return 1.0, None
+
+
+def _totals(by_item):
+	out = {}
+	for by_week in by_item.values():
+		for k, q in by_week.items():
+			out[k] = out.get(k, 0.0) + q
+	return out
+
+
+def _backtest(company, usable, as_of, weeks):
+	"""How well each calendar would have forecast the company's last 8 weeks,
+	2 weeks at a time, from the weeks before each: {calendar: error or None},
+	and the error with no seasons at all."""
+	span = 2 * BACKTEST_WINDOWS - 1 + weeks
+	recent = _totals(data.weekly_sales(company, usable, as_of, 0, span)[0])
+	last_year = {
+		cal: _totals(data.weekly_sales(company, usable, as_of - datetime.timedelta(days=shift), 0, span)[0])
+		for cal, shift in SEASON_SHIFT.items()
+	}
+	none_err = 0.0
+	errors = {cal: 0.0 for cal in SEASON_SHIFT}
+	for t in range(BACKTEST_WINDOWS):
+		test = [2 * t, 2 * t + 1]
+		base = range(2 * t + 2, 2 * t + 2 + weeks)
+		actual = sum(recent.get(k, 0.0) for k in test)
+		rate = sum(recent.get(k, 0.0) for k in base) / float(weeks)
+		none_err += abs(rate * 2 - actual)
+		for cal, ly in last_year.items():
+			if errors[cal] is None:
+				continue
+			f = model.season_factor(sum(ly.get(k, 0.0) for k in base), weeks, sum(ly.get(k, 0.0) for k in test), 2)
+			if f is None:
+				errors[cal] = None
+				continue
+			errors[cal] += abs(rate * 2 * f - actual)
+	return errors, none_err
+
+
+def _seasons(company, usable, as_of, weeks, items, s):
+	if not s["seasonality"]:
+		return Seasons(basis="off", weeks=weeks)
+	errors = {}
+	if s["season_calendar"] in SEASON_SHIFT:
+		cal, basis = s["season_calendar"], "set"
+	else:
+		errors, none_err = _backtest(company, usable, as_of, weeks)
+		cal = model.pick_calendar(errors, none_err)
+		basis = "chosen" if cal else "no history"
+		errors = dict(errors, none=none_err)
+	if not cal:
+		return Seasons(basis=basis, weeks=weeks, errors=errors)
+	ref = as_of - datetime.timedelta(days=SEASON_SHIFT[cal])
+	ly, groups = data.weekly_sales(company, usable, ref, -model.HORIZON_WEEKS_MAX, weeks - 1, items)
+	return Seasons(cal, basis, weeks, ly, groups, errors)
+
+
+def _levels(p, lead, z, cover, position=None, seasons=None):
 	p["lead_time"] = lead
-	p["safety"] = model.safety_stock(z, p["sigma"], lead)
-	p["rop"] = model.reorder_point(p["speed"], lead, p["safety"])
-	p["target"] = model.order_up_to(p["rop"], p["speed"], cover)
+	f, basis = seasons.factor(p["item_code"], p["item_group"], lead + cover) if seasons else (1.0, None)
+	p["season_factor"] = f
+	p["season_basis"] = basis
+	p["forecast"] = p["speed"] * f
+	p["safety"] = model.safety_stock(z, p["sigma"] * f, lead)
+	p["rop"] = model.reorder_point(p["forecast"], lead, p["safety"])
+	p["target"] = model.order_up_to(p["rop"], p["forecast"], cover)
 	pos = p["position"] if position is None else position
 	p["position_after"] = pos
-	p["low"] = 1 if model.is_running_low(p["speed"], pos, p["rop"]) else 0
+	p["low"] = 1 if model.is_running_low(p["forecast"], pos, p["rop"]) else 0
 	p["need"] = model.round_need(p["target"] - pos, p["whole"]) if p["low"] else 0.0
 
 

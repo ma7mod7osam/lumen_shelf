@@ -15,6 +15,7 @@ class LumenShelfSettings(Document):
 			"min_history_days": _("Days in stock needed before judging an outlet"),
 			"slow_days": _("Slow when stock lasts more than (days)"),
 			"overstock_days": _("Overstock when stock lasts more than (days)"),
+			"trend_threshold": _("Rising or falling from (%)"),
 		}
 		for field, (lo, hi) in st.LIMITS.items():
 			value = self.get(field)

@@ -63,3 +63,49 @@ class TestModel(unittest.TestCase):
 			{"a": "A", "b": "A", "c": "B", "d": "C", "e": "C"},
 		)
 		self.assertEqual(model.abc_classes({"only": 5}), {"only": "A"})
+
+
+class TestModel020(unittest.TestCase):
+	"""0.2.0 arithmetic, hand-worked."""
+
+	def test_horizon_weeks(self):
+		self.assertEqual(model.horizon_weeks(21), 3)
+		self.assertEqual(model.horizon_weeks(2), 1)  # never under a week
+		self.assertEqual(model.horizon_weeks(400), 13)  # never over a quarter
+
+	def test_season_factor(self):
+		self.assertAlmostEqual(model.season_factor(56, 8, 63, 3), 3.0)  # 7 a week, then 21
+		self.assertEqual(model.season_factor(8, 8, 300, 1), 4.0)  # kept at 4 at most
+		self.assertEqual(model.season_factor(80, 8, 0, 1), 0.25)  # and 0.25 at least
+		self.assertIsNone(model.season_factor(0, 8, 10, 1))  # nothing to learn from
+
+	def test_pick_calendar(self):
+		self.assertEqual(model.pick_calendar({"Gregorian": 10.0, "Hijri": 4.0}, 12.0), "Hijri")
+		self.assertIsNone(model.pick_calendar({"Gregorian": 13.0, "Hijri": None}, 12.0))  # worse than none
+		self.assertIsNone(model.pick_calendar({"Gregorian": 12.0}, 12.0))  # a tie is no gain
+
+	def test_trend(self):
+		days = model.window_days(END, 4)  # 28 days, halves of 14
+		stocked = set(days)
+		sold = {d: (1.0 if i < 14 else 2.0) for i, d in enumerate(days)}
+		self.assertAlmostEqual(model.trend(days, stocked, sold), 1.0)
+		self.assertIsNone(model.trend(days, set(days[:9]) | set(days[14:]), sold))  # first half too thin
+		self.assertIsNone(model.trend(days, stocked, {days[20]: 5.0}))  # nothing in the first half
+
+	def test_out_of_stock_days(self):
+		days = model.window_days(END, 2)
+		stocked = set(days[3:6]) | set(days[8:])
+		self.assertEqual(model.out_of_stock_days(days, stocked), 2)  # days 6 and 7, not 0 to 2
+		self.assertEqual(model.out_of_stock_days(days, set()), 0)
+
+	def test_accuracy(self):
+		acc, bias = model.accuracy([(12.0, 10.0), (8.0, 10.0)])
+		self.assertAlmostEqual(acc, 0.8)
+		self.assertAlmostEqual(bias, 0.0)
+		self.assertEqual(model.accuracy([(5.0, 0.0)]), (None, None))
+
+	def test_fit_budget(self):
+		lines = [{"cost": 60.0}, {"cost": 50.0}, {"cost": 30.0}]
+		self.assertEqual(model.fit_budget(lines, 100.0), 90.0)
+		self.assertEqual([l["in_budget"] for l in lines], [1, 0, 1])  # the second does not fit, the third does
+		self.assertEqual([l["running_total"] for l in lines], [60.0, 60.0, 90.0])

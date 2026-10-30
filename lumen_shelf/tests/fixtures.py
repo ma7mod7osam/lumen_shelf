@@ -19,7 +19,7 @@ import frappe
 from frappe.utils import add_days, getdate, nowdate
 
 DATASET_KEY = "lumen_shelf_test_dataset"
-DATASET_VERSION = 12
+DATASET_VERSION = 15
 
 WAREHOUSES = {
 	"O1": "RS Out1",
@@ -91,20 +91,22 @@ def make_warehouse(company, abbr, label):
 	return name
 
 
-def ensure_item_group():
-	if not frappe.db.exists("Item Group", "RS Test Items"):
+def ensure_item_group(name="RS Test Items"):
+	if not frappe.db.exists("Item Group", name):
 		frappe.get_doc(
-			{"doctype": "Item Group", "item_group_name": "RS Test Items", "parent_item_group": "All Item Groups", "is_group": 0}
+			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": "All Item Groups", "is_group": 0}
 		).insert(ignore_permissions=True)
-	return "RS Test Items"
+	return name
 
 
-def make_item(code, company, stock=True, purchase_uom=None, factor=None, min_order=0, lead=0, supplier=None, warehouse=None):
+def make_item(
+	code, company, stock=True, purchase_uom=None, factor=None, min_order=0, lead=0, supplier=None, warehouse=None, group=None
+):
 	doc = {
 		"doctype": "Item",
 		"item_code": code,
 		"item_name": code,
-		"item_group": ensure_item_group(),
+		"item_group": ensure_item_group(group) if group else ensure_item_group(),
 		"stock_uom": "Nos",
 		"is_stock_item": 1 if stock else 0,
 		"include_item_in_manufacturing": 0,
@@ -237,7 +239,7 @@ def sales_return(original, item, qty, day):
 	return ret.name
 
 
-def purchase_order(company, supplier, lines, day):
+def purchase_order(company, supplier, lines, day, rate=10):
 	"""lines: [(item, warehouse, qty)]"""
 	po = frappe.get_doc(
 		{
@@ -247,7 +249,7 @@ def purchase_order(company, supplier, lines, day):
 			"transaction_date": day,
 			"schedule_date": add_days(day, 7),
 			"items": [
-				{"item_code": i, "qty": q, "rate": 10, "warehouse": w, "schedule_date": add_days(day, 7), "cost_center": cc(company)}
+				{"item_code": i, "qty": q, "rate": rate, "warehouse": w, "schedule_date": add_days(day, 7), "cost_center": cc(company)}
 				for i, w, q in lines
 			],
 		}
@@ -433,7 +435,7 @@ def build():
 	"""The whole dataset. Returns a plain dict of names."""
 	suffix = "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
 	frappe.set_user("Administrator")
-	ensure_fiscal_years(d(130), today())
+	ensure_fiscal_years(d(440), today())
 	company, abbr = make_company(suffix)
 	wh = {k: make_warehouse(company, abbr, v) for k, v in WAREHOUSES.items()}
 	customer = make_customer("RS Customer")
@@ -452,6 +454,12 @@ def build():
 	it["L1"] = make_item(code("L1"), company, supplier=s1, warehouse=wh["O1"])
 	it["L2"] = make_item(code("L2"), company, lead=12, supplier=s2, warehouse=wh["O1"])
 	it["BN"] = make_item(code("BN"), company, stock=False)
+	# seasons: their own item group, so the group fallback touches nothing else
+	seasonal = "RS Seasonal %s" % suffix
+	for n in ("S1", "S2", "S3"):
+		it[n] = make_item(code(n), company, group=seasonal)
+	for n in ("T1", "T2", "E1"):
+		it[n] = make_item(code(n), company)
 	product_bundle(it["BN"], it["K1"], 2)
 
 	# what happens on each day: receipts, sales, POS, everything else
@@ -538,6 +546,34 @@ def build():
 		on(rec, 60, (it[name], wh["AB"], 100))
 		sell(name, "AB", [30], 1, rate)
 
+	# --- seasons (0.2.0). S1: last year, 1 a day over the Gregorian window
+	# weeks (364 days back) and 3 a day over the 3 weeks after them. S2: the
+	# same on the Hijri year (354 days back). S3: no history, its group's.
+	on(rec, 430, (it["S1"], wh["O1"], 400))
+	sell("S1", "O1", every_day(420, 365), 1)
+	sell("S1", "O1", every_day(364, 344), 3)
+	sell("S1", "O1", every_day(56, 1, step=2), 2)  # swings, so safety stock counts
+	on(rec, 430, (it["S2"], wh["O1"], 400))
+	sell("S2", "O1", every_day(410, 355), 1)
+	sell("S2", "O1", every_day(354, 334), 3)
+	sell("S2", "O1", every_day(56, 1), 1)
+	on(rec, 70, (it["S3"], wh["O1"], 200))
+	sell("S3", "O1", every_day(56, 1), 1)
+
+	# --- trend: T1 doubles in the recent half of the window, T2 halves
+	on(rec, 70, (it["T1"], wh["O1"], 300))
+	sell("T1", "O1", every_day(56, 29), 1)
+	sell("T1", "O1", every_day(28, 1), 2)
+	on(rec, 70, (it["T2"], wh["O1"], 300))
+	sell("T2", "O1", every_day(56, 29), 2)
+	sell("T2", "O1", every_day(28, 1), 1)
+
+	# --- accuracy: E1 runs out from d(10) to d(6) and sells on either side
+	on(rec, 60, (it["E1"], wh["O1"], 46))
+	sell("E1", "O1", every_day(56, 11), 1)
+	on(rec, 5, (it["E1"], wh["O1"], 20))
+	sell("E1", "O1", every_day(5, 1), 1)
+
 	# --- health
 	on(rec, 70, (it["H1"], wh["HL"], 100))
 	sell("H1", "HL", [40, 10], 1)
@@ -558,7 +594,8 @@ def build():
 		for entry in other.get(n, []):
 			if entry[0] == "po":
 				_k, sup, item, w, qty, got = entry
-				out.setdefault("pos_to_receive", []).append((purchase_order(company, sup, [(item, w, qty)], day), got))
+				# bought at 12 while stock is valued at 10: the last purchase rate shows apart
+				out.setdefault("pos_to_receive", []).append((purchase_order(company, sup, [(item, w, qty)], day, rate=12), got))
 			elif entry[0] == "transfer":
 				_k, item, src, dst, qty = entry
 				transfer(company, [(item, src, dst, qty)], day)

@@ -36,6 +36,16 @@ frappe.query_reports["Shelf Stock Health"] = {
 			fieldtype: "Select",
 			options: ["", "A", "B", "C"],
 		},
+		{
+			fieldname: "trend",
+			label: __("Trend"),
+			fieldtype: "Select",
+			options: [
+				{ value: "", label: "" },
+				{ value: "Rising", label: __("Rising") },
+				{ value: "Falling", label: __("Falling") },
+			],
+		},
 	],
 	formatter(value, row, column, data, default_formatter) {
 		value = default_formatter(value, row, column, data);
@@ -48,6 +58,20 @@ frappe.query_reports["Shelf Stock Health"] = {
 				OK: "text-muted",
 			}[data.status_key];
 			if (cls) value = `<span class="${cls}" style="font-weight: 600">${value}</span>`;
+		}
+		if (column.fieldname === "trend_status" && data.trend_key) {
+			// blue for rising, amber for falling (never green, Lumen rule)
+			const style =
+				data.trend_key === "Rising" ? "color: var(--blue-500, #1463FF)" : "color: var(--orange-500, #E79913)";
+			value = `<span style="${style}; font-weight: 600">${value}</span>`;
+		}
+		if (column.fieldname === "trend" && data.trend !== null && data.trend !== undefined) {
+			// keep the sign on the left in Arabic too: +40% not 40%+
+			const sign = data.trend > 0 ? "+" : "";
+			value = `<div style="text-align: right"><bdi dir="ltr">${sign}${data.trend.toFixed(1)}%</bdi></div>`;
+		}
+		if (column.fieldname === "lost_value" && data.lost_value) {
+			value = `<span class="text-danger">${value}</span>`;
 		}
 		if (column.fieldname === "days_left" && data.days_left > 365) {
 			// a year or more of stock: the exact figure is noise

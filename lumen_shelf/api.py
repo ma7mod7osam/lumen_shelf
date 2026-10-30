@@ -26,6 +26,10 @@ Contract 1 (Lumen Shelf 0.1.0):
         "Wait for main warehouse"), source (translated), transfer_qty,
         transfer_from, buy_qty, supplier, purchase_qty, purchase_uom,
         lead_time, history_days
+        Added in 0.2.0 (still contract 1, only new fields): forecast
+        (expected daily sales, after the season effect; days_left and the
+        suggestion use it), season_factor (blank when no season applies),
+        season_basis ("item" or "group"), unit_cost, buy_cost
       transfers row: item_code, item_name, from_warehouse, to_warehouse, qty,
         stock_uom, reason_key ("running_low", "sells_faster"), reason
         (translated), from_on_shelf, from_daily_sales, to_on_shelf,

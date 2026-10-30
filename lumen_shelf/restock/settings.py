@@ -12,6 +12,11 @@ SOURCE_BUY = "Buy from supplier"
 SOURCE_TRANSFER = "Transfer from main warehouse"
 SOURCES = (SOURCE_TRANSFER_FIRST, SOURCE_BUY, SOURCE_TRANSFER)
 
+CAL_AUTO = "Choose automatically"
+CAL_GREGORIAN = "Gregorian"
+CAL_HIJRI = "Hijri"
+CALENDARS = (CAL_AUTO, CAL_GREGORIAN, CAL_HIJRI)
+
 ROLE_MAIN = "Main warehouse"
 ROLE_OUTLET = "Outlet"
 ROLE_LEAVE_OUT = "Leave out"
@@ -32,6 +37,13 @@ DEFAULTS = {
 	"stock_health": 1,
 	"slow_days": 90,
 	"overstock_days": 60,
+	"seasonality": 1,
+	"season_calendar": CAL_AUTO,
+	"trends": 1,
+	"trend_threshold": 30,
+	"lost_sales": 1,
+	"budget_plan": 1,
+	"forecast_accuracy": 1,
 }
 
 # Allowed ranges, checked when the settings are saved and again when read, so a
@@ -44,9 +56,19 @@ LIMITS = {
 	"min_history_days": (1, 182),
 	"slow_days": (7, 3650),
 	"overstock_days": (7, 3650),
+	"trend_threshold": (5, 500),
 }
 
-CHECKS = ("enabled", "outlet_transfers", "stock_health")
+CHECKS = (
+	"enabled",
+	"outlet_transfers",
+	"stock_health",
+	"seasonality",
+	"trends",
+	"lost_sales",
+	"budget_plan",
+	"forecast_accuracy",
+)
 
 
 def _raw():
@@ -84,6 +106,8 @@ def get_settings():
 			out[key] = v
 	if out["service_level"] not in SERVICE_LEVELS:
 		out["service_level"] = DEFAULTS["service_level"]
+	if out["season_calendar"] not in CALENDARS:
+		out["season_calendar"] = DEFAULTS["season_calendar"]
 	if out["restock_source"] not in SOURCES:
 		out["restock_source"] = DEFAULTS["restock_source"]
 	out["z"] = SERVICE_LEVELS[out["service_level"]]

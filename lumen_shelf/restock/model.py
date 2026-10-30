@@ -152,3 +152,92 @@ def abc_classes(values):
 		out[key] = "A" if before < 0.80 - EPS else ("B" if before < 0.95 - EPS else "C")
 		running += value
 	return out
+
+
+# ---- 0.2.0: seasons, trend, lost sales, budget, accuracy
+
+SEASON_MIN_ITEM = 20.0  # units sold in last year's window before an item has its own season
+SEASON_MIN_GROUP = 50.0  # the same for its item group
+SEASON_CLAMP = (0.25, 4.0)
+HORIZON_WEEKS_MAX = 13
+
+
+def horizon_weeks(days):
+	"""The coming weeks a suggestion has to cover (lead time + cover days)."""
+	return max(1, min(HORIZON_WEEKS_MAX, int(round(days / 7.0))))
+
+
+def season_factor(base_qty, base_weeks, horizon_qty, horizon_n):
+	"""Last year: the sales rate over the weeks ahead divided by the rate over
+	the weeks of the history window. None when last year had no sales in the
+	window weeks, so nothing can be learned."""
+	if base_qty <= EPS or base_weeks <= 0 or horizon_n <= 0:
+		return None
+	ratio = (max(horizon_qty, 0.0) / horizon_n) / (base_qty / base_weeks)
+	lo, hi = SEASON_CLAMP
+	return min(max(ratio, lo), hi)
+
+
+def pick_calendar(errors, none_error):
+	"""The calendar whose backtest error is lowest, only if it beats leaving
+	seasons out. `errors` is {name: error or None}."""
+	best, best_err = None, none_error
+	for name in sorted(errors):
+		err = errors[name]
+		if err is not None and err < best_err - EPS:
+			best, best_err = name, err
+	return best
+
+
+def trend(days, stocked, sold_by_day, min_days=10, min_units=10.0):
+	"""Change of the in-stock sales rate, recent half of `days` against the
+	earlier half: 0.5 is +50%. None when either half is too thin to judge."""
+	half = len(days) // 2
+	parts = []
+	for chunk in (days[:half], days[half:]):
+		n = 0
+		qty = 0.0
+		for d in chunk:
+			if d in stocked:
+				n += 1
+				qty += sold_by_day.get(d, 0.0)
+		parts.append((n, qty))
+	(n0, q0), (n1, q1) = parts
+	if n0 < min_days or n1 < min_days or q0 + q1 < min_units or q0 <= EPS:
+		return None
+	return (q1 / n1) / (q0 / n0) - 1.0
+
+
+def out_of_stock_days(days, stocked):
+	"""Days out of stock since the item first was in stock in the window."""
+	first = next((i for i, d in enumerate(days) if d in stocked), None)
+	if first is None:
+		return 0
+	return sum(1 for d in days[first:] if d not in stocked)
+
+
+def accuracy(pairs):
+	"""(accuracy, bias) from [(forecast, actual)]: 1 - sum|F-A| / sum A, and
+	sum(F-A) / sum A. None when nothing was sold."""
+	total = sum(a for _f, a in pairs)
+	if total <= EPS:
+		return None, None
+	err = sum(abs(f - a) for f, a in pairs)
+	bias = sum(f - a for f, a in pairs)
+	return max(0.0, 1.0 - err / total), bias / total
+
+
+def fit_budget(lines, budget):
+	"""Marks lines, already in priority order, that fit the budget: the running
+	total of their cost stays within it. A line that does not fit is skipped and
+	a cheaper one after it may still fit. Returns the total spent."""
+	spent = 0.0
+	for line in lines:
+		cost = line.get("cost") or 0.0
+		if spent + cost <= budget + EPS:
+			spent += cost
+			line["in_budget"] = 1
+		else:
+			line["in_budget"] = 0
+		line["running_total"] = spent
+	return spent

@@ -113,12 +113,14 @@ class TestAccess(unittest.TestCase):
 		self.assertFalse(access.can_view())
 
 	def test_feature_switches(self):
-		set_settings(self.company, self.wh["M"], outlet_transfers=0, stock_health=0)
+		set_settings(self.company, self.wh["M"], outlet_transfers=0, stock_health=0, forecast_accuracy=0)
 		frappe.set_user(self.viewer)
 		with self.assertRaises(frappe.ValidationError):
 			views.load("transfers", self.company, use_cache=False)
 		with self.assertRaises(frappe.ValidationError):
 			views.load("stock_health", self.company, use_cache=False)
+		with self.assertRaises(frappe.ValidationError):
+			views.load("forecast_accuracy", self.company, use_cache=False)
 		views.load("running_low", self.company, items=self.items(), use_cache=False)
 
 	def test_hook_roles_from_other_apps(self):
@@ -139,10 +141,12 @@ class TestAccess(unittest.TestCase):
 		from frappe.desk.query_report import run
 
 		frappe.set_user(self.viewer)
-		for name in ("Shelf Running Low", "Shelf Transfers", "Shelf Stock Health"):
+		for name in ("Shelf Running Low", "Shelf Transfers", "Shelf Stock Health", "Shelf Forecast Accuracy"):
 			out = run(name, filters={"company": self.company})
 			self.assertTrue(out["columns"], name)
 			self.assertIsInstance(out["result"], list, name)
+		out = run("Shelf Running Low", filters={"company": self.company, "budget": 1000})
+		self.assertIn("in_budget", [c["fieldname"] for c in out["columns"]])
 		frappe.set_user(self.nobody)
 		with self.assertRaises(frappe.PermissionError):
 			run("Shelf Running Low", filters={"company": self.company})

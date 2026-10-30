@@ -33,6 +33,12 @@ frappe.query_reports["Shelf Running Low"] = {
 				{ value: "Buy", label: __("By purchase") },
 			],
 		},
+		{
+			fieldname: "budget",
+			label: __("Budget"),
+			fieldtype: "Currency",
+			description: __("Ranks the purchases by urgency and value and marks those that fit."),
+		},
 	],
 	formatter(value, row, column, data, default_formatter) {
 		value = default_formatter(value, row, column, data);
@@ -41,7 +47,13 @@ frappe.query_reports["Shelf Running Low"] = {
 			const cls = data.days_left <= (data.lead_time || 0) ? "text-danger" : "text-warning";
 			value = `<span class="${cls}" style="font-weight: 600">${value}</span>`;
 		}
-		if (column.fieldname === "suggested_qty" && data.suggested_qty) {
+		if (column.fieldname === "season_factor" && data.season_factor) {
+			// above 1: last year sold more in the weeks ahead, below 1: less
+			const style =
+				data.season_factor > 1 ? "color: var(--blue-500, #1463FF)" : "color: var(--orange-500, #E79913)";
+			value = `<span style="${style}; font-weight: 600">${value}</span>`;
+		}
+				if (column.fieldname === "suggested_qty" && data.suggested_qty) {
 			value = `<span style="font-weight: 600">${value}</span>`;
 		}
 		return value;

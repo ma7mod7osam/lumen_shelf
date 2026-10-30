@@ -46,7 +46,7 @@ def item_master(item_codes):
 		return {}
 	rows = frappe.db.sql(
 		"""select i.name, i.item_name, i.item_group, i.stock_uom, i.purchase_uom,
-			i.min_order_qty, i.lead_time_days, i.is_purchase_item,
+			i.min_order_qty, i.lead_time_days, i.is_purchase_item, i.last_purchase_rate,
 			ifnull(u.must_be_whole_number, 0) as whole
 		from `tabItem` i left join `tabUOM` u on u.name = i.stock_uom
 		where i.name in %(items)s and i.is_stock_item=1 and i.disabled=0 and i.has_variants=0""",
@@ -157,6 +157,48 @@ def sales(company, whs, start, end, items=None):
 			)
 		)
 	return out
+
+
+def week_bounds(ref, k_lo, k_hi):
+	"""The dates of weeks k_lo..k_hi counted back from `ref`: week 0 is the 7
+	days before ref, week -1 the 7 days from ref on."""
+	import datetime
+
+	return ref - datetime.timedelta(days=7 * k_hi + 7), ref - datetime.timedelta(days=7 * k_lo + 1)
+
+
+def weekly_sales(company, whs, ref, k_lo, k_hi, items=None):
+	"""Units sold per item and week, counted back from `ref` (see week_bounds),
+	in every warehouse of `whs` together: {item: {week: qty}} plus each item's
+	group: {item: item_group}. Sales as in sales(). Weekly totals from the
+	database, never a year of daily rows."""
+	start, end = week_bounds(ref, k_lo, k_hi)
+	args = {"company": company, "whs": _in(whs), "start": start, "end": end, "ref": ref, "items": _in(items or [])}
+	week = "floor((datediff(%(ref)s, s.posting_date) - 1) / 7)"
+	out, groups = {}, {}
+	sources = [
+		("`tabPOS Invoice Item`", "`tabPOS Invoice`", "i.stock_qty", "", ""),
+		("`tabSales Invoice Item`", "`tabSales Invoice`", "i.stock_qty", " and s.is_consolidated=0", ""),
+		("`tabPacked Item`", "`tabPOS Invoice`", "i.qty", "", " and i.parenttype='POS Invoice'"),
+		("`tabPacked Item`", "`tabSales Invoice`", "i.qty", " and s.is_consolidated=0", " and i.parenttype='Sales Invoice'"),
+	]
+	for child, parent, qty, cond, ptype in sources:
+		rows = frappe.db.sql(
+			"""select i.item_code, it.item_group, {week} as wk, sum({qty})
+			from {child} i join {parent} s on s.name = i.parent
+				join `tabItem` it on it.name = i.item_code
+			where s.docstatus=1 and s.company=%(company)s{cond}{ptype}
+				and s.posting_date between %(start)s and %(end)s
+				and i.warehouse in %(whs)s""".format(week=week, qty=qty, child=child, parent=parent, cond=cond, ptype=ptype)
+			+ _items_clause(items, "i.item_code")
+			+ " group by i.item_code, it.item_group, wk",
+			args,
+		)
+		for item, group, wk, q in rows:
+			cell = out.setdefault(item, {})
+			cell[int(wk)] = cell.get(int(wk), 0.0) + flt(q)
+			groups[item] = group
+	return out, groups
 
 
 def _by_datetime():

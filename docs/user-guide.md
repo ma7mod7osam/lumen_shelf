@@ -1,9 +1,9 @@
-# Lumen Restock: User Guide
+# Lumen Shelf: User Guide
 
-*Applies to Lumen Restock v0.1.0 (phase 1). "Lumen Restock" is a working name.
+*Applies to Lumen Shelf v0.1.0 (phase 1).
 This document is updated with every change.*
 
-Lumen Restock learns how fast each item sells in each outlet, works out how
+Lumen Shelf learns how fast each item sells in each outlet, works out how
 many days are left on the shelf, and tells you what to transfer between
 warehouses and what to buy, before anything runs out. It reads only what is
 already in ERPNext. **Phase 1 is read only: it creates no document.**
@@ -13,7 +13,7 @@ counted from POS Invoices and Sales Invoices.
 
 ## 1. Installation and first day
 
-Install the app and open **Lumen Restock** in the desk. There is nothing to
+Install the app and open **Lumen Shelf** in the desk. There is nothing to
 fill in. On the first day it uses these defaults:
 
 | Setting | Default |
@@ -38,7 +38,7 @@ own (section 5). The settings page shows what was found.
 All three are ERPNext reports, so they sort, filter, export to Excel and print
 like any other report, in English or Arabic, light or dark.
 
-### Running low (Restock Running Low)
+### Running low (Shelf Running Low)
 
 Per outlet, the items that will run out before a new delivery can arrive.
 
@@ -59,7 +59,7 @@ Per outlet, the items that will run out before a new delivery can arrive.
 Days left shows red when it is shorter than the lead time, amber otherwise.
 Quantities that are zero are left blank.
 
-### Transfer suggestions (Restock Transfers)
+### Transfer suggestions (Shelf Transfers)
 
 Every suggested move: item, from, to, quantity, and why.
 
@@ -68,7 +68,7 @@ Every suggested move: item, from, to, quantity, and why.
 - **Sells faster there**: the item does not move in one outlet but sells in
   another, so the spare stock goes where it sells.
 
-### Stock health (Restock Stock Health)
+### Stock health (Shelf Stock Health)
 
 Per outlet: the **ABC** ranking (A = the items making the first 80% of sales
 value, B = the next 15%, C = the rest), and a status:
@@ -138,7 +138,7 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
 
 ## 6. Settings
 
-**Lumen Restock Settings**. Every field is optional.
+**Lumen Shelf Settings**. Every field is optional.
 
 - **Enabled** switches the whole app off for everyone.
 - **Suggest transfers between outlets** and **Show stock health** switch those
@@ -148,10 +148,10 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
 
 ## 7. Who sees what
 
-- Roles that see the lists: **Restock Manager** (also edits the settings),
-  **Restock User**, Stock Manager, Purchase Manager, System Manager.
+- Roles that see the lists: **Shelf Manager** (also edits the settings),
+  **Shelf User**, Stock Manager, Purchase Manager, System Manager.
 - The reports also need ERPNext's own stock access (read on Bin), as every
-  stock report does. Give a Restock User the Stock User role as well.
+  stock report does. Give a Shelf User the Stock User role as well.
 - **User Permissions** on Warehouse limit a person to their outlets: they see
   only those outlets' lists, and only the transfers that touch them. User
   Permissions on Company work the same way.
@@ -159,22 +159,22 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
 
 ## 8. LumenPOS and other apps
 
-Lumen Restock works on its own. When LumenPOS is installed, the till will show
+Lumen Shelf works on its own. When LumenPOS is installed, the till will show
 the manager the running-low list (built by LumenPOS against the contract
 below). Another app can let its own roles see the lists by adding, in its
 hooks.py:
 
 ```python
-lumen_restock_viewer_roles = ["LumenPOS Manager"]
+lumen_shelf_viewer_roles = ["LumenPOS Manager"]
 ```
 
-The contract, version 1 (`lumen_restock.api`):
+The contract, version 1 (`lumen_shelf.api`):
 
 - `state()`: app, version, contract, enabled, can_view. Never fails.
 - `running_low(company, warehouse)` and `transfers(company, warehouse)`:
   `{status: "ok", contract, company, as_of, window, main_warehouse, rows}`, or
   `{status: "disabled" | "forbidden" | "error", message}`. The row fields are
-  listed in `lumen_restock/api.py`.
+  listed in `lumen_shelf/api.py`.
 
 ## 9. Phases
 
@@ -191,6 +191,7 @@ The contract, version 1 (`lumen_restock.api`):
 ### 0.1.0 (2026-10-29)
 
 - First version, phase 1, read only.
+- Named Lumen Shelf by the owner (called Lumen Restock while it was built).
 - Daily sales per item and outlet, weighted to recent weeks, days out of stock
   left out, from POS Invoices and Sales Invoices without double counting.
 - Days left, lead times learned per supplier, safety stock, reorder point,

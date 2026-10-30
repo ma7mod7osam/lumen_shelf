@@ -1,0 +1,77 @@
+{
+ "app": "lumen_shelf",
+ "creation": "2026-10-29 12:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "stock",
+ "idx": 0,
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "show_arrow": 0,
+   "type": "Link",
+   "link_type": "Workspace",
+   "label": "Home",
+   "link_to": "Lumen Shelf",
+   "icon": "home"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "show_arrow": 0,
+   "type": "Link",
+   "link_type": "Report",
+   "label": "Running low",
+   "link_to": "Shelf Running Low",
+   "icon": ""
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "show_arrow": 0,
+   "type": "Link",
+   "link_type": "Report",
+   "label": "Transfer suggestions",
+   "link_to": "Shelf Transfers",
+   "icon": ""
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "show_arrow": 0,
+   "type": "Link",
+   "link_type": "Report",
+   "label": "Stock health",
+   "link_to": "Shelf Stock Health",
+   "icon": ""
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "show_arrow": 0,
+   "type": "Link",
+   "link_type": "DocType",
+   "label": "Lumen Shelf Settings",
+   "link_to": "Lumen Shelf Settings",
+   "icon": "settings"
+  }
+ ],
+ "modified": "2026-10-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Lumen Shelf",
+ "name": "Lumen Shelf",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "Lumen Shelf"
+}

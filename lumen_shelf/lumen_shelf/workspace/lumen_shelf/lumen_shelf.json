@@ -1,0 +1,117 @@
+{
+ "app": "lumen_shelf",
+ "category": "Modules",
+ "charts": [],
+ "content": "[{\"id\":\"rs_head\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Lumen Shelf</b></span>\",\"col\":12}},{\"id\":\"rs_sc_0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Running low\",\"col\":4}},{\"id\":\"rs_sc_1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transfer suggestions\",\"col\":4}},{\"id\":\"rs_sc_2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock health\",\"col\":4}},{\"id\":\"rs_sc_set\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Lumen Shelf Settings\",\"col\":4}},{\"id\":\"rs_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Restock\",\"col\":4}}]",
+ "creation": "2026-10-29 12:00:00.000000",
+ "custom_blocks": [],
+ "developer_mode_only": 0,
+ "disable_user_customization": 0,
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "extends_another_page": 0,
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "stock",
+ "idx": 0,
+ "is_default": 0,
+ "is_hidden": 0,
+ "is_standard": 1,
+ "label": "Lumen Shelf",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Restock",
+   "link_count": 4,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Running low",
+   "link_count": 0,
+   "link_to": "Shelf Running Low",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Transfer suggestions",
+   "link_count": 0,
+   "link_to": "Shelf Transfers",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Stock health",
+   "link_count": 0,
+   "link_to": "Shelf Stock Health",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Lumen Shelf Settings",
+   "link_count": 0,
+   "link_to": "Lumen Shelf Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-10-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Lumen Shelf",
+ "name": "Lumen Shelf",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 50.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Running low",
+   "link_to": "Shelf Running Low",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Transfer suggestions",
+   "link_to": "Shelf Transfers",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Stock health",
+   "link_to": "Shelf Stock Health",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Lumen Shelf Settings",
+   "link_to": "Lumen Shelf Settings",
+   "type": "DocType"
+  }
+ ],
+ "title": "Lumen Shelf"
+}

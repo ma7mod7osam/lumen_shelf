@@ -1,4 +1,4 @@
-# Lumen Restock (working name)
+# Lumen Shelf
 
 Smart restocking for ERPNext v13 to v16. It learns how fast each item sells in
 each outlet, works out how many days are left on the shelf, and suggests what

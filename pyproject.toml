@@ -1,5 +1,5 @@
 [project]
-name = "lumen_restock"
+name = "lumen_shelf"
 authors = [
     { name = "Lumen Solutions", email = "hello@lumen-solutions.co" },
 ]
@@ -17,6 +17,6 @@ build-backend = "flit_core.buildapi"
 
 [tool.bench.frappe-dependencies]
 # One branch serves v13, v14, v15 and v16. Version differences are handled in
-# code (lumen_restock/restock/compat.py), not by excluding releases.
+# code (lumen_shelf/restock/compat.py), not by excluding releases.
 frappe = ">=13.0.0,<17.0.0"
 erpnext = ">=13.0.0,<17.0.0"

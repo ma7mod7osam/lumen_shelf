@@ -19,7 +19,7 @@ import frappe
 from frappe.utils import add_days, getdate, nowdate
 
 DATASET_KEY = "lumen_shelf_test_dataset"
-DATASET_VERSION = 15
+DATASET_VERSION = 17
 
 WAREHOUSES = {
 	"O1": "RS Out1",
@@ -100,7 +100,19 @@ def ensure_item_group(name="RS Test Items"):
 
 
 def make_item(
-	code, company, stock=True, purchase_uom=None, factor=None, min_order=0, lead=0, supplier=None, warehouse=None, group=None
+	code,
+	company,
+	stock=True,
+	purchase_uom=None,
+	factor=None,
+	min_order=0,
+	lead=0,
+	supplier=None,
+	warehouse=None,
+	group=None,
+	brand=None,
+	shelf_life=0,
+	batches=False,
 ):
 	doc = {
 		"doctype": "Item",
@@ -117,6 +129,19 @@ def make_item(
 		"lead_time_days": lead,
 		"item_defaults": [{"company": company, "default_supplier": supplier, "default_warehouse": warehouse}] if supplier else [],
 	}
+	if brand:
+		if not frappe.db.exists("Brand", brand):
+			frappe.get_doc({"doctype": "Brand", "brand": brand}).insert(ignore_permissions=True)
+		doc["brand"] = brand
+	if shelf_life:
+		doc["shelf_life_in_days"] = shelf_life
+	if batches:
+		# ERPNext v16 allows batches only once Stock Settings switch them on
+		meta = frappe.get_meta("Stock Settings")
+		if meta.has_field("enable_serial_and_batch_no_for_item"):
+			frappe.db.set_single_value("Stock Settings", "enable_serial_and_batch_no_for_item", 1)
+		doc["has_batch_no"] = 1
+		doc["has_expiry_date"] = 1
 	if purchase_uom:
 		doc["purchase_uom"] = purchase_uom
 		doc["uoms"] = [{"uom": "Nos", "conversion_factor": 1}, {"uom": purchase_uom, "conversion_factor": factor}]
@@ -159,8 +184,23 @@ def make_customer(name):
 # ------------------------------------------------------------- transactions
 
 
+def _batch_fields(doctype, row, batch):
+	"""Put a batch on a line. ERPNext v15+ keeps batches in a Serial and Batch
+	Bundle: with use_serial_batch_fields it builds one from batch_no itself."""
+	if batch:
+		row["batch_no"] = batch
+		if frappe.get_meta(doctype).has_field("use_serial_batch_fields"):
+			row["use_serial_batch_fields"] = 1
+	return row
+
+
+def make_batch(item, name, expiry):
+	frappe.get_doc({"doctype": "Batch", "batch_id": name, "item": item, "expiry_date": expiry}).insert(ignore_permissions=True)
+	return name
+
+
 def receipt(company, lines, day, time="08:00:00"):
-	"""Material Receipt. lines: [(item, warehouse, qty)]"""
+	"""Material Receipt. lines: [(item, warehouse, qty)] or (item, warehouse, qty, batch)"""
 	se = frappe.get_doc(
 		{
 			"doctype": "Stock Entry",
@@ -171,8 +211,12 @@ def receipt(company, lines, day, time="08:00:00"):
 			"posting_date": day,
 			"posting_time": time,
 			"items": [
-				{"item_code": i, "qty": q, "t_warehouse": w, "basic_rate": 10, "conversion_factor": 1, "uom": "Nos", "cost_center": cc(company)}
-				for i, w, q in lines
+				_batch_fields(
+					"Stock Entry Detail",
+					{"item_code": l[0], "qty": l[2], "t_warehouse": l[1], "basic_rate": 10, "conversion_factor": 1, "uom": "Nos", "cost_center": cc(company)},
+					l[3] if len(l) > 3 else None,
+				)
+				for l in lines
 			],
 		}
 	)
@@ -204,7 +248,7 @@ def transfer(company, lines, day, time="10:00:00"):
 
 
 def sales_invoice(company, customer, lines, day, time="12:00:00"):
-	"""lines: [(item, warehouse, qty, rate)]"""
+	"""lines: [(item, warehouse, qty, rate)] or (item, warehouse, qty, rate, batch)"""
 	si = frappe.get_doc(
 		{
 			"doctype": "Sales Invoice",
@@ -215,7 +259,14 @@ def sales_invoice(company, customer, lines, day, time="12:00:00"):
 			"posting_time": time,
 			"due_date": day,
 			"update_stock": 1,
-			"items": [{"item_code": i, "qty": q, "rate": r, "warehouse": w, "cost_center": cc(company)} for i, w, q, r in lines],
+			"items": [
+				_batch_fields(
+					"Sales Invoice Item",
+					{"item_code": l[0], "qty": l[2], "rate": l[3], "warehouse": l[1], "cost_center": cc(company)},
+					l[4] if len(l) > 4 else None,
+				)
+				for l in lines
+			],
 		}
 	)
 	si.insert(ignore_permissions=True)
@@ -441,6 +492,7 @@ def build():
 	customer = make_customer("RS Customer")
 	s1 = make_supplier("RS Supplier One %s" % suffix)
 	s2 = make_supplier("RS Supplier Two %s" % suffix)
+	s3 = make_supplier("RS Supplier Three %s" % suffix)
 
 	def code(n):
 		return "RS-%s-%s" % (suffix, n)
@@ -460,6 +512,17 @@ def build():
 		it[n] = make_item(code(n), company, group=seasonal)
 	for n in ("T1", "T2", "E1"):
 		it[n] = make_item(code(n), company)
+	# 0.3.0: patterns, new items, shelf life, batches, dead stock, gaps
+	for n in ("I1", "LU1", "DS1", "DB1", "DP1", "AG1", "OLD1", "MS1"):
+		it[n] = make_item(code(n), company)
+	fresh, brand = "RS Fresh %s" % suffix, "RS Brand %s" % suffix
+	for n in ("NB1", "NB2", "NB3", "N1"):
+		it[n] = make_item(code(n), company, group=fresh, brand=brand)
+	it["N2"] = make_item(code("N2"), company, group=fresh)
+	it["SL1"] = make_item(code("SL1"), company, shelf_life=10)
+	it["EX1"] = make_item(code("EX1"), company, batches=True)
+	batch_a = make_batch(it["EX1"], "RSB-A-%s" % suffix, add_days(today(), 5))
+	batch_b = make_batch(it["EX1"], "RSB-B-%s" % suffix, add_days(today(), 60))
 	product_bundle(it["BN"], it["K1"], 2)
 
 	# what happens on each day: receipts, sales, POS, everything else
@@ -574,6 +637,52 @@ def build():
 	on(rec, 5, (it["E1"], wh["O1"], 20))
 	sell("E1", "O1", every_day(5, 1), 1)
 
+	# --- 0.3.0 patterns: I1 sells 2 every 4 days (intermittent), LU1 every
+	# 3 days, 1 or 7 in turn (lumpy)
+	on(rec, 70, (it["I1"], wh["O1"], 100))
+	sell("I1", "O1", every_day(56, 1, step=4), 2)
+	on(rec, 70, (it["LU1"], wh["O1"], 200))
+	for k, n in enumerate(every_day(56, 1, step=3)):
+		on(sales, n, (it["LU1"], wh["O1"], 1 if k % 2 == 0 else 7, 10))
+
+	# --- new items: NB1 to NB3 sell 1, 2, 3 a day. N1 (same brand and group)
+	# and N2 (same group, no brand) arrived 5 days ago
+	for n, q in (("NB1", 1), ("NB2", 2), ("NB3", 3)):
+		on(rec, 70, (it[n], wh["O1"], 300))
+		sell(n, "O1", every_day(56, 1), q)
+	for n in ("N1", "N2"):
+		on(rec, 5, (it[n], wh["O1"], 30))
+		sell(n, "O1", every_day(5, 1), 1)
+
+	# --- shelf life 10 days
+	on(rec, 70, (it["SL1"], wh["O1"], 100))
+	sell("SL1", "O1", every_day(56, 1), 1)
+
+	# --- batches: A (expires in 5 days) sells 1 a day, B (in 60 days) arrives later
+	on(rec, 60, (it["EX1"], wh["O1"], 70, batch_a))
+	for n in every_day(56, 1):
+		on(sales, n, (it["EX1"], wh["O1"], 1, 10, batch_a))
+	on(rec, 10, (it["EX1"], wh["O1"], 30, batch_b))
+
+	# --- dead stock: DS1 bought from supplier three 30 days ago, never sold.
+	# DB1 sold 3 times, on invoices with other items
+	on(other, 32, ("po3", s3, it["DS1"], wh["O1"], 50, 30))
+	on(rec, 70, (it["DB1"], wh["O1"], 100))
+	sell("DB1", "O1", [50, 30, 10], 1)
+	# DP1: dead too, and only ever bought with DB1: its strongest partner, never picked
+	on(rec, 70, (it["DP1"], wh["O1"], 100))
+	sell("DP1", "O1", [50, 30, 10], 1)
+	# OLD1: in stock early in the window, empty since: not a new item
+	on(rec, 56, (it["OLD1"], wh["O1"], 5))
+	sell("OLD1", "O1", every_day(56, 52), 1)
+	# MS1: the main warehouse sells too, and is still never an assortment gap
+	on(rec, 70, (it["MS1"], wh["M"], 100))
+	sell("MS1", "M", every_day(56, 1), 1)
+
+	# --- assortment gap: AG1 sells only in Outlet 2
+	on(rec, 70, (it["AG1"], wh["O2"], 100))
+	sell("AG1", "O2", every_day(56, 1), 1)
+
 	# --- health
 	on(rec, 70, (it["H1"], wh["HL"], 100))
 	sell("H1", "HL", [40, 10], 1)
@@ -586,7 +695,7 @@ def build():
 	out = {"r1_invoice": None, "pos": {}}
 	profile = None
 	pos_days = (10, 5, 1)
-	receive_days = {e[5] for v in other.values() for e in v if e[0] == "po"}
+	receive_days = {e[5] for v in other.values() for e in v if e[0] in ("po", "po3")}
 	for n in sorted(set(rec) | set(sales) | set(other) | set(pos_days) | receive_days, reverse=True):
 		day = d(n)
 		if n in rec:
@@ -596,6 +705,9 @@ def build():
 				_k, sup, item, w, qty, got = entry
 				# bought at 12 while stock is valued at 10: the last purchase rate shows apart
 				out.setdefault("pos_to_receive", []).append((purchase_order(company, sup, [(item, w, qty)], day, rate=12), got))
+			elif entry[0] == "po3":
+				_k, sup, item, w, qty, got = entry
+				out.setdefault("pos_to_receive", []).append((purchase_order(company, sup, [(item, w, qty)], day), got))
 			elif entry[0] == "transfer":
 				_k, item, src, dst, qty = entry
 				transfer(company, [(item, src, dst, qty)], day)
@@ -603,7 +715,7 @@ def build():
 			if got == n:
 				receive(po_name, day)
 		if n in sales:
-			lines = [(i, w, q, r) for i, w, q, r in sales[n]]
+			lines = list(sales[n])
 			name = sales_invoice(company, customer, lines, day)
 			if n == 20:
 				out["r1_invoice"] = name
@@ -634,7 +746,8 @@ def build():
 		"warehouses": wh,
 		"items": it,
 		"customer": customer,
-		"suppliers": {"S1": s1, "S2": s2},
+		"suppliers": {"S1": s1, "S2": s2, "S3": s3},
+		"batches": {"A": batch_a, "B": batch_b},
 		"pos_invoices": out["pos"],
 		"pos_profile": profile,
 	}

@@ -60,6 +60,12 @@ SEASON_SHIFT = {st.CAL_GREGORIAN: 364, st.CAL_HIJRI: 354}
 BACKTEST_WINDOWS = 4  # windows of 2 weeks, the last 8 weeks
 ACCURACY_DAYS = 14
 
+NEW_ITEM_DAYS = 14  # first on the shelf within the last 14 days: a new item
+SIMILAR_MIN_DAYS = 28  # a similar item counts once it has this many days in stock
+SIMILAR_MIN_ITEMS = 3
+RETURN_DAYS = 60  # bought this recently: it can still go back to the supplier
+TOGETHER_MAX = 5000  # pairs kept in the result
+
 
 def _cache_key(company, as_of, items, s):
 	blob = json.dumps(
@@ -177,6 +183,15 @@ def _compute(company, as_of, items, s):
 		sold_qty = sum(sold_by_day.values())
 		sales_value = sum(v[1] for v in by_day.values())
 		tr = model.trend(days, stocked, sold_by_day) if s["trends"] else None
+		pattern = adi = cv2 = None
+		base, base_basis = speed, "history"
+		if s["demand_patterns"] and wh != main:
+			pattern, adi, cv2 = model.demand_pattern(days, stocked, sold_by_day)
+			if pattern in (model.PATTERN_INTERMITTENT, model.PATTERN_LUMPY):
+				rate = model.sba(days, stocked, sold_by_day)
+				if rate is not None:
+					base, base_basis = rate, "pattern"
+		first_in = next((i for i, d in enumerate(days) if d in stocked), None)
 		lost_qty = lost_value = 0.0
 		if s["lost_sales"] and wh != main and speed > model.EPS:
 			lost_qty = speed * model.out_of_stock_days(days, stocked)
@@ -214,6 +229,19 @@ def _compute(company, as_of, items, s):
 			"lost_qty": lost_qty,
 			"lost_value": lost_value,
 			"unit_cost": flt(it.last_purchase_rate) or flt(b.get("valuation_rate")),
+			"pattern": pattern,
+			"adi": adi,
+			"cv2": cv2,
+			"base_speed": base,
+			"base_basis": base_basis,
+			"brand": it.brand,
+			"shelf_life": flt(it.shelf_life_in_days) if s["expiry"] else 0.0,
+			"batch_expiry": 1 if (it.has_batch_no and it.has_expiry_date) else 0,
+			"new_item": 1 if (first_in is not None and first_in >= len(days) - NEW_ITEM_DAYS and on_shelf > model.EPS) else 0,
+			"expiry_risk_qty": 0.0,
+			"expiry_risk_value": 0.0,
+			"action": None,
+			"action_target": None,
 			"speed": speed,
 			"sigma": sigma,
 			"supplier": supplier,
@@ -224,6 +252,9 @@ def _compute(company, as_of, items, s):
 			"_sold_by_day": sold_by_day,
 			"_stocked": stocked,
 		}
+
+	if s["new_item_forecast"]:
+		_similar(pairs, main)
 
 	lines = []
 
@@ -247,7 +278,7 @@ def _compute(company, as_of, items, s):
 			f, _basis = seasons.factor(item, p["item_group"], p["lead_buy"] + cover)
 			own_speed, own_sigma = own_speed * f, own_sigma * f
 			own_rop = model.reorder_point(own_speed, p["lead_buy"], model.safety_stock(z, own_sigma, p["lead_buy"]))
-			own_target = model.order_up_to(own_rop, own_speed, cover)
+			own_target = model.order_up_to(own_rop, own_speed, model.shelf_life_cover(cover, p["shelf_life"], p["lead_buy"]))
 			p["spare"] = model.round_surplus(p["on_shelf"] - p["so_reserved"] - own_target, p["whole"])
 
 	# 3. every other outlet's surplus beyond its own cover, if it has the history
@@ -349,6 +380,25 @@ def _compute(company, as_of, items, s):
 
 	_health(pairs, s)
 	_abc(pairs)
+
+	if s["expiry"]:
+		keys = [k for k, p in pairs.items() if p["batch_expiry"] and p["actual_qty"] > model.EPS]
+		found = data.batches(keys) if keys else {}
+		for key, got in found.items():
+			p = pairs[key]
+			p["expiry_risk_qty"] = model.expiry_risk(got, p.get("forecast", p["speed"]), as_of)
+			p["expiry_risk_value"] = p["expiry_risk_qty"] * p["valuation_rate"]
+
+	together = []
+	if s["bought_together"] or s["dead_stock_actions"]:
+		together = model.basket_pairs(data.baskets(company, usable, start, end))
+		together.sort(key=lambda t: (-t[2], -t[4], t[0], t[1]))
+		together = together[:TOGETHER_MAX]
+		result["together"] = [
+			{"item": a, "partner": b, "together": n, "confidence": c, "lift": l} for a, b, n, c, l in together
+		]
+	if s["dead_stock_actions"]:
+		_actions(pairs, lines, data.last_receipts(company, as_of - datetime.timedelta(days=RETURN_DAYS)), together)
 
 	for p in pairs.values():
 		p.pop("_sold_by_day", None)
@@ -458,14 +508,69 @@ def _levels(p, lead, z, cover, position=None, seasons=None):
 	f, basis = seasons.factor(p["item_code"], p["item_group"], lead + cover) if seasons else (1.0, None)
 	p["season_factor"] = f
 	p["season_basis"] = basis
-	p["forecast"] = p["speed"] * f
+	p["forecast"] = p.get("base_speed", p["speed"]) * f
 	p["safety"] = model.safety_stock(z, p["sigma"] * f, lead)
 	p["rop"] = model.reorder_point(p["forecast"], lead, p["safety"])
-	p["target"] = model.order_up_to(p["rop"], p["forecast"], cover)
+	p["cover"] = model.shelf_life_cover(cover, p.get("shelf_life"), lead)
+	p["target"] = model.order_up_to(p["rop"], p["forecast"], p["cover"])
 	pos = p["position"] if position is None else position
 	p["position_after"] = pos
 	p["low"] = 1 if model.is_running_low(p["forecast"], pos, p["rop"]) else 0
 	p["need"] = model.round_need(p["target"] - pos, p["whole"]) if p["low"] else 0.0
+
+
+def _similar(pairs, main):
+	"""A new item takes the typical (median) history speed of items of the same
+	brand and item group in the same warehouse, else of the same group, once 3
+	or more of them have been in stock long enough to judge."""
+	by_group = {}
+	for (item, wh), p in pairs.items():
+		if wh != main and p["in_stock_days"] >= SIMILAR_MIN_DAYS:
+			by_group.setdefault((wh, p["item_group"]), []).append(p)
+	for (item, wh), p in pairs.items():
+		if wh == main or not p["new_item"]:
+			continue
+		peers = [q for q in by_group.get((wh, p["item_group"]), []) if q["item_code"] != item]
+		got = None
+		if p["brand"]:
+			got = model.median_or_none([q["speed"] for q in peers if q["brand"] == p["brand"]], SIMILAR_MIN_ITEMS)
+			if got is not None:
+				p["base_speed"], p["base_basis"] = got, "similar brand"
+				continue
+		got = model.median_or_none([q["speed"] for q in peers], SIMILAR_MIN_ITEMS)
+		if got is not None:
+			p["base_speed"], p["base_basis"] = got, "similar group"
+
+
+def _actions(pairs, lines, receipts, together):
+	"""For stock that does not sell: move it, return it, bundle it or discount it."""
+	moves = {}
+	for l in lines:
+		if l["kind"] == KIND_TRANSFER and l["reason"] == REASON_FASTER:
+			moves.setdefault((l["item_code"], l["from_warehouse"]), l["to_warehouse"])
+	partners = {}
+	for a, b, n, conf, lift in sorted(together, key=lambda t: (-t[4], -t[2], t[1])):
+		partners.setdefault(a, []).append(b)
+	dead = (STATUS_NO_SALES, STATUS_SLOW, STATUS_OVERSTOCK)
+	for (item, wh), p in pairs.items():
+		if p.get("status") not in dead:
+			continue
+		move_to = moves.get((item, wh))
+		receipt = receipts.get((item, wh))
+		partner = next(
+			(
+				b
+				for b in partners.get(item, [])
+				if pairs.get((b, wh), {}).get("speed", 0.0) > model.EPS and pairs[(b, wh)].get("status") not in dead
+			),
+			None,
+		)
+		p["action"] = model.dead_stock_action(move_to, receipt, partner)
+		p["action_target"] = {
+			model.ACTION_MOVE: move_to,
+			model.ACTION_RETURN: receipt[1] if receipt else None,
+			model.ACTION_BUNDLE: partner,
+		}.get(p["action"])
 
 
 def _cover_days(p):

@@ -1,0 +1,29 @@
+frappe.query_reports["Shelf Assortment Gaps"] = {
+	filters: [
+		{
+			fieldname: "company",
+			label: __("Company"),
+			fieldtype: "Link",
+			options: "Company",
+			reqd: 1,
+			default: frappe.defaults.get_user_default("Company"),
+		},
+		{
+			fieldname: "warehouse",
+			label: __("Outlet"),
+			fieldtype: "Link",
+			options: "Warehouse",
+			get_query: () => ({
+				filters: { company: frappe.query_report.get_filter_value("company"), is_group: 0 },
+			}),
+		},
+	],
+	formatter(value, row, column, data, default_formatter) {
+		value = default_formatter(value, row, column, data);
+		if (!data) return value;
+		if (column.fieldname === "start_qty" && data.start_qty) {
+			value = `<span style="font-weight: 600">${value}</span>`;
+		}
+		return value;
+	},
+};

@@ -30,6 +30,31 @@ REASONS = {
 
 TRENDS = (engine.TREND_RISING, engine.TREND_FALLING)
 
+BASIS_LABELS = {
+	"history": "Sales history",
+	"pattern": "Demand pattern",
+	"similar brand": "Similar items (brand)",
+	"similar group": "Similar items (group)",
+}
+
+PATTERNS = (model.PATTERN_SMOOTH, model.PATTERN_ERRATIC, model.PATTERN_INTERMITTENT, model.PATTERN_LUMPY)
+
+GAP_MIN_SPEED = 0.5  # sells at least this many a day in another outlet
+
+
+def action_text(p):
+	"""The suggested action for stock that does not sell, in words."""
+	a, t = p.get("action"), p.get("action_target")
+	if a == model.ACTION_MOVE:
+		return _("Move to {0}").format(t)
+	if a == model.ACTION_RETURN:
+		return _("Return to {0}").format(t) if t else _("Return to supplier")
+	if a == model.ACTION_BUNDLE:
+		return _("Sell together with {0}").format(t)
+	if a == model.ACTION_DISCOUNT:
+		return _("Discount")
+	return ""
+
 STATUSES = (
 	engine.STATUS_NO_SALES,
 	engine.STATUS_SLOW,
@@ -120,6 +145,8 @@ def running_low(result, allowed, warehouse=None, item_group=None, source=None, b
 				"forecast": _r(p.get("forecast", p["speed"]), 3),
 				"season_factor": _r(p.get("season_factor"), 2) if p.get("season_basis") else None,
 				"season_basis": p.get("season_basis"),
+				"forecast_basis_key": p.get("base_basis") or "history",
+				"forecast_basis": _(BASIS_LABELS.get(p.get("base_basis") or "history")),
 				"days_left": _r(p["days_left"], 1),
 				"on_order": _q(p["on_order"]),
 				"reorder_point": _r(p["rop"], 2),
@@ -231,6 +258,12 @@ def stock_health(result, allowed, warehouse=None, status=None, abc=None, trend=N
 				"trend_status": _(p["trend_status"]) if p.get("trend_status") else "",
 				"lost_qty": _q(p.get("lost_qty")),
 				"lost_value": _q(p.get("lost_value")),
+				"pattern_key": p.get("pattern") or "",
+				"pattern": _(p["pattern"]) if p.get("pattern") else "",
+				"action_key": p.get("action") or "",
+				"action": action_text(p),
+				"expiry_risk_qty": _q(p.get("expiry_risk_qty")),
+				"expiry_risk_value": _q(p.get("expiry_risk_value")),
 			}
 		)
 	rank = {"A": 0, "B": 1, "C": 2}
@@ -312,3 +345,78 @@ def accuracy(result, allowed, warehouse=None):
 		r.pop("_f"), r.pop("_a"), r.pop("_plain")
 	rows.sort(key=lambda r: (-abs(r["difference"] or 0.0), r["warehouse"], r["item_code"]))
 	return rows, {"accuracy": acc, "bias": bias, "plain_accuracy": plain_acc, "from": str(then), "days": days}
+
+
+def _names(codes):
+	if not codes:
+		return {}
+	return dict(frappe.db.sql("select name, item_name from `tabItem` where name in %s", (tuple(codes),)))
+
+
+def bought_together(result, allowed, item=None, warehouse=None):
+	"""Pairs of items that are bought on the same invoice, strongest first. A
+	person limited to some outlets sees only items that sell in them."""
+	seen = None
+	if allowed is not None:
+		seen = {p["item_code"] for p in result["pairs"] if p["warehouse"] in allowed and abs(p["sold_qty"]) > model.EPS}
+	rows = []
+	for t in result.get("together") or []:
+		if item and t["item"] != item:
+			continue
+		if seen is not None and not (t["item"] in seen and t["partner"] in seen):
+			continue
+		rows.append(
+			{
+				"item_code": t["item"],
+				"partner": t["partner"],
+				"together": t["together"],
+				"confidence": _r(t["confidence"] * 100.0, 1),
+				"lift": _r(t["lift"], 2),
+			}
+		)
+	names = _names(sorted({r["item_code"] for r in rows} | {r["partner"] for r in rows}))
+	for r in rows:
+		r["item_name"] = names.get(r["item_code"])
+		r["partner_name"] = names.get(r["partner"])
+	rows.sort(key=lambda r: (-r["together"], -(r["lift"] or 0), r["item_code"], r["partner"]))
+	return rows
+
+
+def assortment_gaps(result, allowed, warehouse=None):
+	"""Items that sell in one outlet and that another outlet does not carry:
+	no stock, no sale and nothing on order there in the whole window."""
+	main = result["main_warehouse"]
+	cover = result["settings"]["cover_days"]
+	by_item = {}
+	for p in result["pairs"]:
+		by_item.setdefault(p["item_code"], {})[p["warehouse"]] = p
+	# a shop, not a store room: only warehouses that sold something in the window
+	selling = {p["warehouse"] for p in result["pairs"] if abs(p["sold_qty"]) > model.EPS}
+	outlets = [w for w in result["warehouses"] if w != main and w in selling]
+	rows = []
+	for item, by_wh in sorted(by_item.items()):
+		sellers = [q for w, q in by_wh.items() if w != main and q["eligible"] and q["speed"] >= GAP_MIN_SPEED - model.EPS]
+		if not sellers:
+			continue
+		typical = model.median([q["speed"] for q in sellers])
+		first = sorted(sellers, key=lambda q: q["warehouse"])[0]
+		for w in outlets:
+			if (warehouse and w != warehouse) or not _visible(allowed, w):
+				continue
+			q = by_wh.get(w)
+			if q and (q["on_shelf"] > model.EPS or q["in_stock_days"] or abs(q["sold_qty"]) > model.EPS or q["on_order"] > model.EPS):
+				continue
+			rows.append(
+				{
+					"warehouse": w,
+					"item_code": item,
+					"item_name": first["item_name"],
+					"item_group": first["item_group"],
+					"sells_in": ", ".join(sorted(q2["warehouse"] for q2 in sellers)),
+					"daily_sales": _r(typical, 2),
+					"start_qty": model.round_need(typical * (first["lead_buy"] + cover), first["whole"]),
+					"stock_uom": first["stock_uom"],
+				}
+			)
+	rows.sort(key=lambda r: (r["warehouse"], -(r["daily_sales"] or 0), r["item_code"]))
+	return rows

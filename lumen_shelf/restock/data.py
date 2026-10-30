@@ -47,6 +47,7 @@ def item_master(item_codes):
 	rows = frappe.db.sql(
 		"""select i.name, i.item_name, i.item_group, i.stock_uom, i.purchase_uom,
 			i.min_order_qty, i.lead_time_days, i.is_purchase_item, i.last_purchase_rate,
+			i.brand, i.shelf_life_in_days, i.has_batch_no, i.has_expiry_date,
 			ifnull(u.must_be_whole_number, 0) as whole
 		from `tabItem` i left join `tabUOM` u on u.name = i.stock_uom
 		where i.name in %(items)s and i.is_stock_item=1 and i.disabled=0 and i.has_variants=0""",
@@ -199,6 +200,65 @@ def weekly_sales(company, whs, ref, k_lo, k_hi, items=None):
 			cell[int(wk)] = cell.get(int(wk), 0.0) + flt(q)
 			groups[item] = group
 	return out, groups
+
+
+def batches(pairs):
+	"""{(item, warehouse): [(expiry date, qty)]} for items kept in batches with
+	an expiry date. The quantities come from ERPNext's own get_batch_qty, so
+	they are right on every version (v15+ keeps batches in Serial and Batch
+	Bundles, older versions on the Stock Ledger)."""
+	from erpnext.stock.doctype.batch.batch import get_batch_qty
+
+	out = {}
+	expiry = {}
+	for item, wh in pairs:
+		rows = get_batch_qty(warehouse=wh, item_code=item) or []
+		got = []
+		for r in rows:
+			qty = flt(r.get("qty"))
+			if qty <= 0:
+				continue
+			b = r.get("batch_no")
+			if b not in expiry:
+				expiry[b] = frappe.db.get_value("Batch", b, "expiry_date")
+			if expiry[b]:
+				got.append((getdate(expiry[b]), qty))
+		if got:
+			out[(item, wh)] = got
+	return out
+
+
+def last_receipts(company, since):
+	"""{(item, warehouse): (latest date, supplier)} of submitted Purchase
+	Receipts (not returns) since `since`."""
+	rows = frappe.db.sql(
+		"""select i.item_code, i.warehouse, r.posting_date, r.supplier
+		from `tabPurchase Receipt Item` i join `tabPurchase Receipt` r on r.name = i.parent
+		where r.docstatus=1 and r.is_return=0 and r.company=%s and r.posting_date >= %s
+		order by r.posting_date""",
+		(company, since),
+	)
+	return {(item, wh): (getdate(day), sup) for item, wh, day, sup in rows}
+
+
+def baskets(company, whs, start, end):
+	"""[set of items] per invoice: POS Invoices and Sales Invoices that are not
+	a POS consolidation, not returns, in the window, lines in `whs`."""
+	out = {}
+	for child, parent, cond in (
+		("`tabPOS Invoice Item`", "`tabPOS Invoice`", ""),
+		("`tabSales Invoice Item`", "`tabSales Invoice`", " and s.is_consolidated=0"),
+	):
+		rows = frappe.db.sql(
+			"""select s.name, i.item_code from {child} i join {parent} s on s.name = i.parent
+			where s.docstatus=1 and s.is_return=0 and s.company=%(company)s{cond}
+				and s.posting_date between %(start)s and %(end)s
+				and i.warehouse in %(whs)s""".format(child=child, parent=parent, cond=cond),
+			{"company": company, "whs": _in(whs), "start": start, "end": end},
+		)
+		for name, item in rows:
+			out.setdefault((parent, name), set()).add(item)
+	return list(out.values())
 
 
 def _by_datetime():

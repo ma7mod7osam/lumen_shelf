@@ -54,6 +54,16 @@ def execute(filters=None):
 				"datatype": "Int",
 			},
 		]
+	if s.get("expiry"):
+		summary.append(
+			{
+				"label": _("Stock that will expire before it sells"),
+				"value": sum(r["expiry_risk_value"] or 0 for r in rows),
+				"indicator": "Red",
+				"datatype": "Currency",
+				"currency": currency,
+			}
+		)
 	if s.get("lost_sales"):
 		summary.append(
 			{
@@ -68,7 +78,7 @@ def execute(filters=None):
 
 
 def columns(s=None):
-	s = s or {"trends": 1, "lost_sales": 1}
+	s = s or {"trends": 1, "lost_sales": 1, "expiry": 1, "dead_stock_actions": 1, "demand_patterns": 1}
 	cols = [
 		{"fieldname": "item_code", "label": _("Item Code"), "fieldtype": "Link", "options": "Item", "width": 140},
 		{"fieldname": "item_name", "label": _("Item Name"), "fieldtype": "Data", "width": 180},
@@ -76,6 +86,10 @@ def columns(s=None):
 		{"fieldname": "abc", "label": _("ABC"), "fieldtype": "Data", "width": 60},
 		{"fieldname": "status", "label": _("Status"), "fieldtype": "Data", "width": 115},
 	]
+	if s.get("dead_stock_actions"):
+		cols.append({"fieldname": "action", "label": _("Suggested action"), "fieldtype": "Data", "width": 200})
+	if s.get("demand_patterns"):
+		cols.append({"fieldname": "pattern", "label": _("Demand pattern"), "fieldtype": "Data", "width": 115})
 	if s.get("trends"):
 		cols += [
 			{"fieldname": "trend_status", "label": _("Trend"), "fieldtype": "Data", "width": 95},
@@ -88,6 +102,11 @@ def columns(s=None):
 		{"fieldname": "sold_qty", "label": _("Sold"), "fieldtype": "Float", "width": 80},
 		{"fieldname": "sales_value", "label": _("Sales value"), "fieldtype": "Currency", "options": "currency", "width": 120},
 	]
+	if s.get("expiry"):
+		cols += [
+			{"fieldname": "expiry_risk_qty", "label": _("Will expire unsold"), "fieldtype": "Float", "precision": 1, "width": 130},
+			{"fieldname": "expiry_risk_value", "label": _("Expiry risk value"), "fieldtype": "Currency", "options": "currency", "width": 130},
+		]
 	if s.get("lost_sales"):
 		cols += [
 			{"fieldname": "lost_qty", "label": _("Lost qty"), "fieldtype": "Float", "precision": 1, "width": 90},

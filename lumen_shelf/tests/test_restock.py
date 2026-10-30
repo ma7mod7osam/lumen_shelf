@@ -204,8 +204,10 @@ class TestLevels(RestockCase):
 	def test_levels_match_the_rule(self):
 		for p in self.result["pairs"]:
 			# the season effect itself is checked in test_forecast
+			# the season effect, the pattern base and the shelf-life cover are checked
+			# in test_forecast and test_analysis
 			f = p["season_factor"]
-			lv = oracle.levels(p["speed"] * f, p["sigma"] * f, p["lead_time"], Z95, 14)
+			lv = oracle.levels(p["base_speed"] * f, p["sigma"] * f, p["lead_time"], Z95, p["cover"])
 			key = (p["item_code"], p["warehouse"])
 			self.assertAlmostEqual(p["rop"], lv.rop, 9, key)
 			self.assertAlmostEqual(p["target"], lv.target, 9, key)

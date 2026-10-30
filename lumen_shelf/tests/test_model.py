@@ -109,3 +109,54 @@ class TestModel020(unittest.TestCase):
 		self.assertEqual(model.fit_budget(lines, 100.0), 90.0)
 		self.assertEqual([l["in_budget"] for l in lines], [1, 0, 1])  # the second does not fit, the third does
 		self.assertEqual([l["running_total"] for l in lines], [60.0, 60.0, 90.0])
+
+
+class TestModel030(unittest.TestCase):
+	"""0.3.0 arithmetic, hand-worked."""
+
+	def test_demand_pattern(self):
+		days = model.window_days(END, 2)
+		stocked = set(days)
+		smooth = {d: 2.0 for d in days}
+		self.assertEqual(model.demand_pattern(days, stocked, smooth)[0], "Smooth")
+		sparse = {d: 2.0 for d in days[::4]}  # every 4th day, same size
+		pattern, adi, cv2 = model.demand_pattern(days, stocked, sparse)
+		self.assertEqual((pattern, adi, cv2), ("Intermittent", 14 / 4.0, 0.0))
+		lumpy = {d: (1.0 if i % 2 else 9.0) for i, d in enumerate(days[::3])}
+		self.assertEqual(model.demand_pattern(days, stocked, lumpy)[0], "Lumpy")
+		self.assertEqual(model.demand_pattern(days, stocked, {days[0]: 1.0}), (None, None, None))
+
+	def test_sba(self):
+		days = model.window_days(END, 2)
+		sold = {days[1]: 4.0, days[5]: 4.0, days[9]: 4.0}
+		# z stays 4. p: 2 at first, then 2 + 0.1 (4 - 2) = 2.2, then 2.2 + 0.1 (4 - 2.2) = 2.38
+		self.assertAlmostEqual(model.sba(days, set(days), sold), 0.95 * 4 / 2.38)
+		self.assertIsNone(model.sba(days, set(days), {days[3]: 1.0}))
+
+	def test_shelf_life_cover(self):
+		self.assertEqual(model.shelf_life_cover(14, 10, 7), 3.0)
+		self.assertEqual(model.shelf_life_cover(14, 5, 7), 1.0)  # never under a day
+		self.assertEqual(model.shelf_life_cover(14, 0, 7), 14)  # no shelf life: no cap
+
+	def test_expiry_risk(self):
+		today = END
+		batches = [(today + datetime.timedelta(days=60), 30.0), (today + datetime.timedelta(days=5), 14.0)]
+		self.assertAlmostEqual(model.expiry_risk(batches, 1.0, today), 9.0)  # 5 of 14 sell in time
+		self.assertAlmostEqual(model.expiry_risk(batches, 0.0, today), 44.0)
+		# what sold from the first batch is not sold again from the second
+		close = [(today + datetime.timedelta(days=5), 3.0), (today + datetime.timedelta(days=6), 10.0)]
+		self.assertAlmostEqual(model.expiry_risk(close, 1.0, today), 7.0)
+
+	def test_dead_stock_action(self):
+		self.assertEqual(model.dead_stock_action("O2", True, "X"), "Move")
+		self.assertEqual(model.dead_stock_action(None, True, "X"), "Return to supplier")
+		self.assertEqual(model.dead_stock_action(None, False, "X"), "Bundle")
+		self.assertEqual(model.dead_stock_action(None, False, None), "Discount")
+
+	def test_basket_pairs(self):
+		baskets = [{"a", "b"}, {"a", "b"}, {"a", "b", "c"}, {"c"}]
+		got = {(a, b): (n, c, l) for a, b, n, c, l in model.basket_pairs(baskets)}
+		self.assertEqual(set(got), {("a", "b"), ("b", "a")})  # a and c only once together
+		n, conf, lift = got[("a", "b")]
+		self.assertEqual((n, conf), (3, 1.0))
+		self.assertAlmostEqual(lift, 1.0 / (3 / 4.0))

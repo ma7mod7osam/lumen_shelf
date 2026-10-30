@@ -39,9 +39,10 @@ class TestForecast(RestockCase):
 		return [(self.it[n], w) for n in names for w in self.whs]
 
 	def check_levels(self, p, f):
-		"""Expected daily sales = history x season, and the levels follow it."""
-		self.assertAlmostEqual(p["forecast"], p["speed"] * f, 9)
-		lv = oracle.levels(p["speed"] * f, p["sigma"] * f, p["lead_time"], Z95, COVER)
+		"""Expected daily sales = base x season, and the levels follow it. The
+		base is the history, or the pattern's (checked in test_analysis)."""
+		self.assertAlmostEqual(p["forecast"], p["base_speed"] * f, 9)
+		lv = oracle.levels(p["base_speed"] * f, p["sigma"] * f, p["lead_time"], Z95, COVER)
 		self.assertAlmostEqual(p["rop"], lv.rop, 6)
 		self.assertAlmostEqual(p["target"], lv.target, 6)
 
@@ -228,7 +229,15 @@ class TestForecast(RestockCase):
 		self.assertEqual(actual, 28)
 		self.assertAlmostEqual(row["actual_qty"], actual, 6)
 		old = oracle.figures(self.it["A1"], self.wh["O1"], then, 8, self.all_sold)
-		self.assertAlmostEqual(row["forecast_qty"], round(old.speed * 14, 2), 2)
+		# 14 days ago A1 had stood 14 days in stock before its first sale, so by
+		# the pattern rule it was intermittent then: its base was Croston's
+		start, end = oracle.window(then, 8)
+		days = [start + datetime.timedelta(days=i) for i in range(56)]
+		sold = {k: v[0] for k, v in self.all_sold.get((self.it["A1"], self.wh["O1"]), {}).items()}
+		series = [sold.get(d, 0.0) for d in days if d in old.stocked]
+		sales_days = sum(1 for q in series if q > 0)
+		base = oracle.croston_sba(series) if len(series) / sales_days >= 1.32 else old.speed
+		self.assertAlmostEqual(row["forecast_qty"], round(base * 14, 2), 2)
 		self.assertAlmostEqual(row["plain_qty"], round(old.sold_qty_window * 14 / 56.0, 2), 2)
 		err = sum(abs(r["forecast_qty"] - r["actual_qty"]) for r in rows)
 		total = sum(r["actual_qty"] for r in rows)

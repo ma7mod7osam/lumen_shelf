@@ -241,3 +241,128 @@ def fit_budget(lines, budget):
 			line["in_budget"] = 0
 		line["running_total"] = spent
 	return spent
+
+
+# ---- 0.3.0: demand patterns, new items, expiry, dead stock, bought together
+
+PATTERN_SMOOTH = "Smooth"
+PATTERN_ERRATIC = "Erratic"
+PATTERN_INTERMITTENT = "Intermittent"
+PATTERN_LUMPY = "Lumpy"
+ADI_CUT = 1.32  # Syntetos and Boylan's cut-offs
+CV2_CUT = 0.49
+SBA_ALPHA = 0.1
+
+
+def demand_pattern(days, stocked, sold_by_day):
+	"""(pattern, adi, cv2) over the in-stock days, or (None, None, None) with
+	fewer than 2 days that sold. ADI: in-stock days per day with a sale. CV2:
+	the squared coefficient of variation of the sizes of those sales."""
+	series = [sold_by_day.get(d, 0.0) for d in days if d in stocked]
+	sizes = [q for q in series if q > EPS]
+	if len(sizes) < 2:
+		return None, None, None
+	adi = len(series) / float(len(sizes))
+	mean = sum(sizes) / len(sizes)
+	var = sum((q - mean) ** 2 for q in sizes) / (len(sizes) - 1)
+	cv2 = var / (mean * mean)
+	if adi < ADI_CUT:
+		pattern = PATTERN_SMOOTH if cv2 < CV2_CUT else PATTERN_ERRATIC
+	else:
+		pattern = PATTERN_INTERMITTENT if cv2 < CV2_CUT else PATTERN_LUMPY
+	return pattern, adi, cv2
+
+
+def sba(days, stocked, sold_by_day, alpha=SBA_ALPHA):
+	"""Syntetos-Boylan corrected Croston: units a day for demand that comes
+	now and then. Sizes and intervals between sales are smoothed separately,
+	in-stock days only. None with fewer than 2 days that sold."""
+	series = [sold_by_day.get(d, 0.0) for d in days if d in stocked]
+	z = p = None
+	gap = 0
+	n = 0
+	for q in series:
+		gap += 1
+		if q > EPS:
+			n += 1
+			if z is None:
+				z, p = q, float(gap)
+			else:
+				z = z + alpha * (q - z)
+				p = p + alpha * (gap - p)
+			gap = 0
+	if n < 2 or not p:
+		return None
+	return (1.0 - alpha / 2.0) * z / p
+
+
+def median_or_none(values, minimum):
+	v = [x for x in values if x is not None]
+	if len(v) < minimum:
+		return None
+	return median(v)
+
+
+def shelf_life_cover(cover_days, shelf_life, lead):
+	"""Never plan to hold more than sells before it expires."""
+	if not shelf_life or shelf_life <= 0:
+		return cover_days
+	return max(1.0, min(float(cover_days), shelf_life - lead))
+
+
+def expiry_risk(batches, speed, today):
+	"""Units that will expire before they sell. `batches` is [(expiry date,
+	qty)]: the first to expire sells first (FEFO) at `speed` a day."""
+	risk = 0.0
+	sold_until = 0.0  # units sold up to the expiry of the batch before
+	for expiry, qty in sorted(batches, key=lambda b: b[0]):
+		if qty <= EPS:
+			continue
+		days = max((expiry - today).days, 0)
+		can_sell = max(speed * days - sold_until, 0.0)
+		sells = min(qty, can_sell)
+		risk += qty - sells
+		sold_until += sells
+	return risk
+
+
+ACTION_MOVE = "Move"
+ACTION_RETURN = "Return to supplier"
+ACTION_BUNDLE = "Bundle"
+ACTION_DISCOUNT = "Discount"
+
+
+def dead_stock_action(move_to, bought_recently, partner):
+	"""What to do with stock that does not sell, in this order."""
+	if move_to:
+		return ACTION_MOVE
+	if bought_recently:
+		return ACTION_RETURN
+	if partner:
+		return ACTION_BUNDLE
+	return ACTION_DISCOUNT
+
+
+def basket_pairs(baskets, min_together=3):
+	"""[(a, b, together, confidence a->b, lift)] from baskets (sets of items).
+	Both directions. Confidence = baskets with both / baskets with a. Lift =
+	confidence / share of baskets with b."""
+	total = len(baskets)
+	if not total:
+		return []
+	count = {}
+	pair = {}
+	for basket in baskets:
+		items = sorted(basket)
+		for i, a in enumerate(items):
+			count[a] = count.get(a, 0) + 1
+			for b in items[i + 1 :]:
+				pair[(a, b)] = pair.get((a, b), 0) + 1
+	out = []
+	for (a, b), n in pair.items():
+		if n < min_together:
+			continue
+		for x, y in ((a, b), (b, a)):
+			conf = n / float(count[x])
+			out.append((x, y, n, conf, conf / (count[y] / float(total))))
+	return out

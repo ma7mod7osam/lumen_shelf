@@ -44,6 +44,12 @@ DEFAULTS = {
 	"lost_sales": 1,
 	"budget_plan": 1,
 	"forecast_accuracy": 1,
+	"demand_patterns": 1,
+	"new_item_forecast": 1,
+	"expiry": 1,
+	"dead_stock_actions": 1,
+	"bought_together": 1,
+	"assortment_gaps": 1,
 }
 
 # Allowed ranges, checked when the settings are saved and again when read, so a
@@ -68,6 +74,12 @@ CHECKS = (
 	"lost_sales",
 	"budget_plan",
 	"forecast_accuracy",
+	"demand_patterns",
+	"new_item_forecast",
+	"expiry",
+	"dead_stock_actions",
+	"bought_together",
+	"assortment_gaps",
 )
 
 

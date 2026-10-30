@@ -1,6 +1,6 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.2.0 (phase 1, with the smarter forecast).
+*Applies to Lumen Shelf v0.3.0 (phase 1, with the smarter forecast and deeper analysis).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
@@ -33,6 +33,12 @@ fill in. On the first day it uses these defaults:
 | Show lost sales | On |
 | Plan purchases within a budget | On |
 | Show forecast accuracy | On |
+| Forecast by demand pattern | On |
+| Forecast new items from similar ones | On |
+| Watch expiry dates | On |
+| Suggest what to do with stock that does not sell | On |
+| Show items bought together | On |
+| Show assortment gaps | On |
 
 The supplier comes from the item's **Item Defaults** for the company, or else
 from the item's most recent Purchase Order. The main warehouse is found on its
@@ -40,7 +46,7 @@ own (section 5). The settings page shows what was found.
 
 ## 2. The screens
 
-All four are ERPNext reports, so they sort, filter, export to Excel and print
+All six are ERPNext reports, so they sort, filter, export to Excel and print
 like any other report, in English or Arabic, light or dark.
 
 ### Running low (Shelf Running Low)
@@ -52,7 +58,8 @@ Per outlet, the items that will run out before a new delivery can arrive.
 | On shelf | Stock in the warehouse (ERPNext's Bin) less what the tills sold that is not consolidated yet |
 | Daily sales | Average units sold per day the item was in stock |
 | Season effect | How much more (above 1) or less (below 1) sold last year in the weeks ahead. Blank when there is no season to learn from |
-| Expected daily sales | Daily sales x season effect. The reorder point and the suggestion use this |
+| Expected daily sales | The base x season effect. The reorder point and the suggestion use this |
+| Based on | Where the base comes from: Sales history, Demand pattern, or Similar items (brand or group) |
 | Days left | On shelf divided by daily sales |
 | On order | Open Purchase Orders and open Material Requests (purchase and transfer) |
 | Reorder point | Below this, restock now |
@@ -107,6 +114,27 @@ reach the setting (30% by default). Change (%) shows the figure.
 on the shelf in the window, x its daily sales = Lost qty, x its average selling
 price in the window = Lost sales. The total is at the top.
 
+**Demand pattern** (Smooth, Erratic, Intermittent, Lumpy) and **Suggested
+action** for stock that does not sell, see section 3. **Will expire unsold**
+and **Expiry risk value**: stock in batches that will pass its expiry date
+before it sells, the first to expire selling first, at the expected daily
+sales. The total is at the top.
+
+### Bought together (Shelf Bought Together)
+
+Pairs of items that were on the same invoice in the history window, at least
+3 times. **Confidence**: of the invoices with the item, the share that also had
+the other one. **Lift**: how many times more often than chance (above 1, they
+go together).
+
+### Assortment gaps (Shelf Assortment Gaps)
+
+Items that sell at least 0.5 a day in one outlet that another outlet did not
+stock, sell or order at all in the whole history window. Only warehouses that
+sold something count as outlets, so store rooms are never listed, and never
+the main warehouse. **Starting qty**: the typical (middle) daily sales where it
+sells x (lead time + days of cover).
+
 ### Forecast accuracy (Shelf Forecast Accuracy)
 
 What Lumen Shelf forecast 14 days ago for each outlet and item, against what
@@ -145,6 +173,34 @@ An item that sells exactly the same every day needs none.
 is on the shelf and on order, plus what is promised to Sales Orders. A purchase
 is rounded up to the item's purchase unit (for example boxes of 6) and to its
 minimum order quantity. A transfer is rounded down to whole units.
+
+**The base.** Usually the daily sales above. Two exceptions:
+
+- **Demand pattern.** An item that sells now and then (a sale less than about
+  every 1.3 days in stock) is Intermittent, or Lumpy if the sizes of its sales
+  swing a lot. Its base is worked out from the size of its sales and the gaps
+  between them, each smoothed (Croston's method with the Syntetos-Boylan
+  correction), instead of an average that would swing up after every sale.
+  It needs 2 days with a sale.
+- **New items.** An item first on the shelf in the last 14 days of the window
+  takes the typical (middle) daily sales of items of the same brand and item
+  group in the same warehouse that have been in stock 28 days or more, if
+  there are 3 of them. Otherwise items of the same group (3 or more).
+
+**Shelf life.** An item with a Shelf Life In Days never gets more cover than
+its shelf life less the lead time (at least 1 day), so nothing is bought to
+expire on the shelf.
+
+**Stock that does not sell** (No sales, Slow, Overstock) gets a suggested
+action, the first that applies:
+
+1. **Move to** an outlet where it sells faster (the transfer is in Transfer
+   suggestions).
+2. **Return to** the supplier, if it came in on a Purchase Receipt in the last
+   60 days.
+3. **Sell together with** an item it is bought with (Bought together) that
+   sells well in the same warehouse.
+4. **Discount.**
 
 **Seasons.** Lumen Shelf looks at the same item a year ago: its sales over the
 weeks ahead (lead time + days of cover, in whole weeks, 1 to 13) against its
@@ -201,8 +257,10 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
 - **Enabled** switches the whole app off for everyone.
 - **Suggest transfers between outlets**, **Show stock health**, **Adjust for
   seasons**, **Show rising and falling items**, **Show lost sales**, **Plan
-  purchases within a budget** and **Show forecast accuracy** switch those
-  parts off.
+  purchases within a budget**, **Show forecast accuracy**, **Forecast by demand
+  pattern**, **Forecast new items from similar ones**, **Watch expiry dates**,
+  **Suggest what to do with stock that does not sell**, **Show items bought
+  together** and **Show assortment gaps** switch those parts off.
 - **Warehouse roles** (optional): name the main warehouse per company, or leave
   a warehouse out.
 
@@ -247,6 +305,20 @@ The contract, version 1 (`lumen_shelf.api`):
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.3.0 (2026-10-31)
+
+- Demand patterns: items that sell now and then are forecast from the size of
+  their sales and the gaps between them.
+- New items take the typical sales of similar items (same brand and group, or
+  same group) in the same warehouse.
+- Shelf life caps the cover. Batches that will expire before they sell, in
+  quantity and value.
+- A suggested action for stock that does not sell: move, return, sell
+  together, or discount.
+- New report Bought together.
+- New report Assortment gaps.
+- A switch for each.
 
 ### 0.2.0 (2026-10-31)
 

@@ -43,6 +43,18 @@ EXTRA = [
 	"Hijri",
 	"Shelf Forecast Accuracy",
 	"Forecast accuracy",
+	"Sales history",
+	"Demand pattern",
+	"Similar items (brand)",
+	"Similar items (group)",
+	"Smooth",
+	"Erratic",
+	"Intermittent",
+	"Lumpy",
+	"Shelf Bought Together",
+	"Shelf Assortment Gaps",
+	"Bought together",
+	"Assortment gaps",
 ]
 
 

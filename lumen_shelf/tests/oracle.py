@@ -191,3 +191,53 @@ def stocked_days(item, warehouse, days, sold):
 		if opening > 1e-9 or highest_on(item, warehouse, day) > 1e-9 or abs(q) > 1e-9:
 			out.append(day)
 	return out
+
+
+# ---- 0.3.0, written from the user guide's wording
+
+
+def baskets(company, start, end):
+	"""{invoice: set of items} from the documents: POS Invoices and Sales
+	Invoices that are not a POS consolidation and not returns."""
+	out = {}
+	for doctype, extra in (("POS Invoice", {}), ("Sales Invoice", {"is_consolidated": 0})):
+		filters = {"company": company, "docstatus": 1, "is_return": 0, "posting_date": ["between", [start, end]]}
+		filters.update(extra)
+		for name in frappe.get_all(doctype, filters=filters, pluck="name"):
+			doc = frappe.get_doc(doctype, name)
+			out[(doctype, name)] = {i.item_code for i in doc.items}
+	return out
+
+
+def batch_balance(company, item, warehouse):
+	"""{batch: qty} from the Stock Entries and Sales Invoices themselves."""
+	out = {}
+	for name in frappe.get_all("Stock Entry", filters={"company": company, "docstatus": 1}, pluck="name"):
+		for i in frappe.get_doc("Stock Entry", name).items:
+			if i.item_code == item and i.t_warehouse == warehouse and i.batch_no:
+				out[i.batch_no] = out.get(i.batch_no, 0.0) + flt(i.transfer_qty)
+	for name in frappe.get_all("Sales Invoice", filters={"company": company, "docstatus": 1, "update_stock": 1}, pluck="name"):
+		for i in frappe.get_doc("Sales Invoice", name).items:
+			if i.item_code == item and i.warehouse == warehouse and i.batch_no:
+				out[i.batch_no] = out.get(i.batch_no, 0.0) - flt(i.stock_qty)
+	return out
+
+
+def croston_sba(series, alpha=0.1):
+	"""Croston's method with the Syntetos-Boylan correction, from its textbook
+	definition: on each day with a sale, size z and interval p are smoothed
+	toward the new size and the days since the last sale. Rate = (1 - a/2) z / p."""
+	z = p = None
+	since = 0
+	sales = 0
+	for q in series:
+		since += 1
+		if q > 0:
+			sales += 1
+			if z is None:
+				z, p = q, since
+			else:
+				z = alpha * q + (1 - alpha) * z
+				p = alpha * since + (1 - alpha) * p
+			since = 0
+	return None if sales < 2 else (1 - alpha / 2) * z / p

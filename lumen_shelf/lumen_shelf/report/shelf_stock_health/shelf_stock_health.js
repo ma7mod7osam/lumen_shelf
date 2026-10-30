@@ -70,6 +70,12 @@ frappe.query_reports["Shelf Stock Health"] = {
 			const sign = data.trend > 0 ? "+" : "";
 			value = `<div style="text-align: right"><bdi dir="ltr">${sign}${data.trend.toFixed(1)}%</bdi></div>`;
 		}
+		if (column.fieldname === "action" && data.action_key) {
+			value = `<span style="font-weight: 600">${value}</span>`;
+		}
+		if (column.fieldname === "expiry_risk_value" && data.expiry_risk_value) {
+			value = `<span class="text-danger">${value}</span>`;
+		}
 		if (column.fieldname === "lost_value" && data.lost_value) {
 			value = `<span class="text-danger">${value}</span>`;
 		}

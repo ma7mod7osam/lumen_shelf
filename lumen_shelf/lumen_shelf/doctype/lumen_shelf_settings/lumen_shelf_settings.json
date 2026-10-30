@@ -4,13 +4,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "enabled", "intro",
-  "section_restock", "restock_source", "cover_days", "service_level", "column_break_1", "default_lead_time", "transfer_lead_time", "history_weeks",
-  "section_transfers", "outlet_transfers", "min_history_days",
-  "section_health", "stock_health", "slow_days", "overstock_days",
-  "section_forecast", "seasonality", "season_calendar", "column_break_2", "trends", "trend_threshold",
-  "section_insights", "lost_sales", "budget_plan", "forecast_accuracy",
-  "section_warehouses", "detected", "warehouses"
+  "enabled", "intro", "section_restock", "restock_source", "cover_days", "service_level", "column_break_1", "default_lead_time", "transfer_lead_time", "history_weeks", "section_transfers", "outlet_transfers", "min_history_days", "section_health", "stock_health", "slow_days", "overstock_days", "section_forecast", "seasonality", "season_calendar", "column_break_2", "trends", "trend_threshold", "section_insights", "lost_sales", "budget_plan", "forecast_accuracy", "section_analysis", "demand_patterns", "new_item_forecast", "expiry", "column_break_3", "dead_stock_actions", "bought_together", "assortment_gaps", "section_warehouses", "detected", "warehouses"
  ],
  "fields": [
   {"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled", "default": "1", "description": "Switch Lumen Shelf on or off for everyone."},
@@ -40,13 +34,21 @@
   {"fieldname": "lost_sales", "fieldtype": "Check", "label": "Show lost sales", "default": "1", "description": "What an outlet would have sold on the days an item was out of stock."},
   {"fieldname": "budget_plan", "fieldtype": "Check", "label": "Plan purchases within a budget", "default": "1", "description": "Adds a budget filter to Running low: the most urgent and most valuable purchases come first."},
   {"fieldname": "forecast_accuracy", "fieldtype": "Check", "label": "Show forecast accuracy", "default": "1", "description": "Compares what was forecast 14 days ago with what was sold since."},
+  {"fieldname": "section_analysis", "fieldtype": "Section Break", "label": "Deeper analysis"},
+  {"fieldname": "demand_patterns", "fieldtype": "Check", "label": "Forecast by demand pattern", "default": "1", "description": "An item that sells now and then is forecast by the size of its sales and the gaps between them, not by a plain average."},
+  {"fieldname": "new_item_forecast", "fieldtype": "Check", "label": "Forecast new items from similar ones", "default": "1", "description": "An item with under 14 days in stock takes the typical daily sales of items of the same brand and group in the same warehouse."},
+  {"fieldname": "expiry", "fieldtype": "Check", "label": "Watch expiry dates", "default": "1", "description": "Never plans more than sells within an item's shelf life, and shows stock in batches that will expire before it sells."},
+  {"fieldname": "column_break_3", "fieldtype": "Column Break"},
+  {"fieldname": "dead_stock_actions", "fieldtype": "Check", "label": "Suggest what to do with stock that does not sell", "default": "1", "description": "Move it where it sells, return it to the supplier, sell it together with an item bought with it, or discount it."},
+  {"fieldname": "bought_together", "fieldtype": "Check", "label": "Show items bought together", "default": "1"},
+  {"fieldname": "assortment_gaps", "fieldtype": "Check", "label": "Show assortment gaps", "default": "1", "description": "Items that sell in one outlet and that another outlet does not carry."},
   {"fieldname": "section_warehouses", "fieldtype": "Section Break", "label": "Warehouses", "collapsible": 1},
   {"fieldname": "detected", "fieldtype": "HTML", "label": "What was found"},
   {"fieldname": "warehouses", "fieldtype": "Table", "label": "Warehouse roles", "options": "Lumen Shelf Warehouse", "description": "Optional. Every warehouse is an outlet unless named here. The main warehouse is found from the transfers it sends, unless one is named."}
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-10-31 13:00:00.000000",
+ "modified": "2026-10-31 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Lumen Shelf",
  "name": "Lumen Shelf Settings",

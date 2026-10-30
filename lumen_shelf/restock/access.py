@@ -28,6 +28,8 @@ FEATURES = {
 	"transfers": "outlet_transfers",
 	"stock_health": "stock_health",
 	"forecast_accuracy": "forecast_accuracy",
+	"bought_together": "bought_together",
+	"assortment_gaps": "assortment_gaps",
 }
 
 

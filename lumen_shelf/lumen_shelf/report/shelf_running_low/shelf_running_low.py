@@ -60,6 +60,7 @@ def columns(budget_on=True, with_budget=False):
 		{"fieldname": "daily_sales", "label": _("Daily sales"), "fieldtype": "Float", "precision": 2, "width": 95},
 		{"fieldname": "season_factor", "label": _("Season effect"), "fieldtype": "Float", "precision": 2, "width": 105},
 		{"fieldname": "forecast", "label": _("Expected daily sales"), "fieldtype": "Float", "precision": 2, "width": 140},
+		{"fieldname": "forecast_basis", "label": _("Based on"), "fieldtype": "Data", "width": 150},
 		{"fieldname": "days_left", "label": _("Days left"), "fieldtype": "Float", "precision": 1, "width": 85},
 		{"fieldname": "on_order", "label": _("On order"), "fieldtype": "Float", "width": 85},
 		{"fieldname": "reorder_point", "label": _("Reorder point"), "fieldtype": "Float", "precision": 1, "width": 105},

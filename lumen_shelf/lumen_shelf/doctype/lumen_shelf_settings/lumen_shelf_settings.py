@@ -41,6 +41,27 @@ class LumenShelfSettings(Document):
 					frappe.throw(_("Row {0}: company {1} already has a main warehouse.").format(row.idx, row.company))
 				mains[row.company] = row.warehouse
 
+	def on_update(self):
+		"""Automatic mode on: switch on ERPNext's own automatic material requests,
+		which act on the levels. Off (or the app off): remove the levels Lumen
+		Shelf set, so ERPNext stops acting on them."""
+		from lumen_shelf.restock import reorder
+
+		before = self.get_doc_before_save()
+		was_on = bool(before and cint(before.get("enabled")) and cint(before.get("auto_reorder")))
+		now_on = bool(cint(self.enabled) and cint(self.auto_reorder))
+		if now_on and not cint(frappe.db.get_single_value("Stock Settings", "auto_indent")):
+			frappe.db.set_value("Stock Settings", "Stock Settings", "auto_indent", 1)
+			frappe.msgprint(
+				_("ERPNext's automatic material requests (Stock Settings) have been switched on, so ERPNext acts on the reorder levels."),
+				alert=True,
+			)
+		if was_on and not now_on:
+			removed = reorder.clear_all()
+			if removed:
+				frappe.msgprint(_("The reorder levels Lumen Shelf had set were removed."), alert=True)
+
+
 @frappe.whitelist()
 def detected_setup():
 	"""What the app found on its own, per company, shown on the settings page so

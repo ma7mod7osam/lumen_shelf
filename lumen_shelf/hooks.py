@@ -24,12 +24,18 @@ before_install = "lumen_shelf.install.before_install"
 after_install = "lumen_shelf.install.after_install"
 before_migrate = "lumen_shelf.install.before_migrate"
 after_migrate = "lumen_shelf.install.after_migrate"
+before_uninstall = "lumen_shelf.install.before_uninstall"
+
+# Automatic mode only (off by default): refresh ERPNext's reorder levels at
+# 00:15, before ERPNext's own reorder job at 00:45 raises the requests. With
+# automatic mode off it only removes levels Lumen Shelf set earlier, if any.
+scheduler_events = {"cron": {"15 0 * * *": ["lumen_shelf.restock.reorder.nightly"]}}
 
 # Tests only: complete ERPNext's setup on a bare test site (Frappe v16 runs
 # just the tested app's before_tests hooks).
 before_tests = "lumen_shelf.tests.bootstrap.before_tests"
 
-# No doc_events, no scheduler, no overrides. Phase 2 writes only when a
+# No doc_events, no overrides. Phase 2 writes only when a
 # person presses Create material requests (lumen_shelf.restock.requests), and
 # then only ERPNext Material Requests, saved with ERPNext's own checks.
 #

@@ -14,6 +14,7 @@ SKIP_FILES = {"i18n_strings.py"}
 
 # Shown through _() with a variable, so no regex finds them.
 EXTRA = [
+	"Set by Lumen Shelf",  # custom field on Item Reorder (install.py)
 	"By transfer",
 	"By purchase",
 	"Transfer and purchase",

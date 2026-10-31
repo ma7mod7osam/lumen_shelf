@@ -52,6 +52,8 @@ DEFAULTS = {
 	"assortment_gaps": 1,
 	"material_requests": 1,
 	"submit_requests": 1,
+	"auto_reorder": 0,
+	"reorder_alerts": 1,
 }
 
 # Allowed ranges, checked when the settings are saved and again when read, so a
@@ -84,6 +86,8 @@ CHECKS = (
 	"assortment_gaps",
 	"material_requests",
 	"submit_requests",
+	"auto_reorder",
+	"reorder_alerts",
 )
 
 

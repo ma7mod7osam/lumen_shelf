@@ -34,3 +34,19 @@ frappe.ui.form.on("Lumen Shelf Settings", {
 		});
 	},
 });
+
+// Automatic mode: update the reorder levels now, without waiting for the night.
+frappe.ui.form.on("Lumen Shelf Settings", {
+	update_levels_now(frm) {
+		if (frm.is_dirty()) {
+			frappe.msgprint(__("Save the settings first."));
+			return;
+		}
+		frappe
+			.call({ method: "lumen_shelf.restock.reorder.update_now", freeze: true })
+			.then((r) => {
+				frappe.msgprint({ title: __("Reorder levels"), message: frappe.utils.escape_html(r.message || ""), indicator: "blue" });
+				frm.reload_doc();
+			});
+	},
+});

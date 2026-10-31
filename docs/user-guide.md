@@ -1,6 +1,6 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.4.0 (phase 2: material requests from the suggestions).
+*Applies to Lumen Shelf v0.5.0 (phase 3: automatic mode).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
@@ -8,7 +8,8 @@ many days are left on the shelf, and tells you what to transfer between
 warehouses and what to buy, before anything runs out. It reads only what is
 already in ERPNext. It creates a document only when someone presses
 **Create material requests**: then it makes ERPNext Material Requests, and
-nothing else.
+nothing else. In **automatic mode** (off by default) it keeps ERPNext's own
+reorder levels up to date every night, and ERPNext raises the requests.
 
 It works on ERPNext v13, v14, v15 and v16, with or without LumenPOS. Sales are
 counted from POS Invoices and Sales Invoices.
@@ -43,6 +44,8 @@ fill in. On the first day it uses these defaults:
 | Show assortment gaps | On |
 | Create material requests from the suggestions | On |
 | Submit the requests | On |
+| Keep ERPNext's reorder levels up to date (automatic mode) | Off |
+| Daily alert to Shelf Managers | On |
 
 The supplier comes from the item's **Item Defaults** for the company, or else
 from the item's most recent Purchase Order. The main warehouse is found on its
@@ -134,6 +137,43 @@ Who may press it: Shelf Manager, Stock Manager, Purchase Manager, System
 Manager, and only if ERPNext also lets them create (and submit) a Material
 Request. Shelf User does not see the button. A person limited to some
 warehouses gets only the lines whose every warehouse they may see.
+
+### 2b. Automatic mode
+
+Off by default: the shop approves every suggestion. Switched on in **Lumen
+Shelf Settings > Automatic mode**:
+
+- **Every night at 00:15** Lumen Shelf sets, for each item and warehouse, the
+  **reorder level** and **reorder quantity** in ERPNext's own table (Item >
+  Inventory > Reorder Levels):
+  - reorder level = the reorder point (sales during the lead time + safety)
+  - reorder quantity = enough for the days of cover, in whole packs and at
+    least the minimum order (purchases) or whole units (transfers)
+  - type = Transfer for an outlet that restocks from the main warehouse,
+    otherwise Purchase
+- **At 00:45 ERPNext's own job** raises the Material Requests: when ERPNext's
+  projected quantity is at or below the level, it asks for the reorder
+  quantity, or more if the stock fell further. Lumen Shelf never creates a
+  request in this mode. Transfer requests from ERPNext name only the receiving
+  warehouse: the sending one is chosen when the transfer is made.
+- Only items with enough history (or a new item forecast from similar ones)
+  get a level. A level no longer needed is removed.
+- **A level you set yourself is kept.** Lumen Shelf marks its own rows (**Set
+  by Lumen Shelf**, read only) and never touches the others. Where you set a
+  level for an item and warehouse, it sets none. To take one over, delete the
+  Lumen Shelf row and add your own.
+- Switching automatic mode on also switches on ERPNext's own automatic
+  material requests (Stock Settings). Switching automatic mode off, or the
+  whole app off, removes every level Lumen Shelf set.
+- **Update reorder levels now** (button) does tonight's update right away.
+  **Last update** and **Result of the last update** show what it did.
+- **Daily alert to Shelf Managers** (on by default): a bell notification after
+  each update, with what changed and how many items are running low. ERPNext
+  can also email when it raises requests (Stock Settings, Notify by Email on
+  Creation of Automatic Material Request).
+
+Who may press the button: Shelf Manager or System Manager, with ERPNext's own
+permission to change items.
 
 ### Stock health (Shelf Stock Health)
 
@@ -308,6 +348,8 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
   suggestions** switch those parts off.
 - **Submit the requests**: on, the button submits the requests. Off, it saves
   them as drafts.
+- **Keep ERPNext's reorder levels up to date** (automatic mode, off by
+  default) and **Daily alert to Shelf Managers**, see section 2b.
 - **Warehouse roles** (optional): name the main warehouse per company, or leave
   a warehouse out.
 
@@ -347,14 +389,24 @@ The contract, version 1 (`lumen_shelf.api`):
 ## 9. Phases
 
 1. **Done**: forecast and lists, read only.
-2. **Now**: one button creates ERPNext Material Requests from the suggestions,
+2. **Done**: one button creates ERPNext Material Requests from the suggestions,
    grouped by supplier or source warehouse. ERPNext's own button turns them
    into Purchase Orders.
-3. **Next**: an automatic mode with alerts that keeps ERPNext's own Item
+3. **Now**: an automatic mode with alerts that keeps ERPNext's own Item
    Reorder levels up to date and lets ERPNext's own automatic Material Requests
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.5.0 (2026-10-31)
+
+- Phase 3, automatic mode (off by default): every night Lumen Shelf sets
+  ERPNext's own reorder level and quantity per item and warehouse from its
+  forecast, and ERPNext's own job raises the material requests.
+- Levels the shop set itself are kept. Switching off removes the levels
+  Lumen Shelf set. Turning it on switches on ERPNext's automatic requests.
+- **Update reorder levels now** button, last update and its result on the
+  settings page, and a daily bell alert to Shelf Managers.
 
 ### 0.4.0 (2026-10-31)
 

@@ -19,7 +19,7 @@ import frappe
 from frappe.utils import add_days, getdate, nowdate
 
 DATASET_KEY = "lumen_shelf_test_dataset"
-DATASET_VERSION = 17
+DATASET_VERSION = 18
 
 WAREHOUSES = {
 	"O1": "RS Out1",
@@ -91,12 +91,39 @@ def make_warehouse(company, abbr, label):
 	return name
 
 
-def ensure_item_group(name="RS Test Items"):
+def ensure_item_group(name="RS Test Items", parent="All Item Groups", is_group=0):
 	if not frappe.db.exists("Item Group", name):
 		frappe.get_doc(
-			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": "All Item Groups", "is_group": 0}
+			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": parent, "is_group": is_group}
 		).insert(ignore_permissions=True)
 	return name
+
+
+def pricing_rule(company, title, apply_on, values, start, end, warehouse=None, disable=0):
+	"""An ERPNext selling Pricing Rule, 20% off. apply_on: Item Code, Item
+	Group or Brand, with `values` for its table. end None: no end date."""
+	table, field = {"Item Code": ("items", "item_code"), "Item Group": ("item_groups", "item_group"), "Brand": ("brands", "brand")}[apply_on]
+	doc = frappe.get_doc(
+		{
+			"doctype": "Pricing Rule",
+			"title": title,
+			"apply_on": apply_on,
+			table: [{field: v} for v in values],
+			"selling": 1,
+			"buying": 0,
+			"company": company,
+			"applicable_for": "",
+			"price_or_product_discount": "Price",
+			"rate_or_discount": "Discount Percentage",
+			"discount_percentage": 20,
+			"valid_from": start,
+			"valid_upto": end,
+			"warehouse": warehouse,
+			"disable": disable,
+		}
+	)
+	doc.insert(ignore_permissions=True)
+	return doc.name
 
 
 def make_item(
@@ -247,8 +274,19 @@ def transfer(company, lines, day, time="10:00:00"):
 	return se.name
 
 
+def _price_fields(row, discount):
+	"""discount None: just a rate. A number: the rate is the price list rate
+	and the line is sold that many percent under it (0: at full price)."""
+	if discount is not None:
+		row["price_list_rate"] = row["rate"]
+		row["discount_percentage"] = discount
+		row["rate"] = row["rate"] * (100 - discount) / 100.0
+	return row
+
+
 def sales_invoice(company, customer, lines, day, time="12:00:00"):
-	"""lines: [(item, warehouse, qty, rate)] or (item, warehouse, qty, rate, batch)"""
+	"""lines: [(item, warehouse, qty, rate)] or (item, warehouse, qty, rate,
+	batch) or (item, warehouse, qty, rate, batch, discount %)"""
 	si = frappe.get_doc(
 		{
 			"doctype": "Sales Invoice",
@@ -262,7 +300,10 @@ def sales_invoice(company, customer, lines, day, time="12:00:00"):
 			"items": [
 				_batch_fields(
 					"Sales Invoice Item",
-					{"item_code": l[0], "qty": l[2], "rate": l[3], "warehouse": l[1], "cost_center": cc(company)},
+					_price_fields(
+						{"item_code": l[0], "qty": l[2], "rate": l[3], "warehouse": l[1], "cost_center": cc(company)},
+						l[5] if len(l) > 5 else None,
+					),
 					l[4] if len(l) > 4 else None,
 				)
 				for l in lines
@@ -477,6 +518,9 @@ def pos_consolidate(company, customer, invoices, day):
 # ------------------------------------------------------------------ dataset
 
 
+PROMO_DAYS = (50, 43, 36, 29, 22)  # days ago PR1 to PR3 were on promotion
+
+
 def every_day(first, last, step=1):
 	"""Days d(first) down to d(last), every `step` days."""
 	return list(range(first, last - 1, -step))
@@ -513,6 +557,12 @@ def build():
 	for n in ("T1", "T2", "E1"):
 		it[n] = make_item(code(n), company)
 	# 0.3.0: patterns, new items, shelf life, batches, dead stock, gaps
+	# 0.7.0 promotions: PR3 sits in a group under a parent group
+	promo_parent = ensure_item_group("RS Promo %s" % suffix, is_group=1)
+	promo_child = ensure_item_group("RS Promo Child %s" % suffix, parent=promo_parent)
+	for n in ("PR1", "PR2"):
+		it[n] = make_item(code(n), company)
+	it["PR3"] = make_item(code("PR3"), company, group=promo_child)
 	for n in ("I1", "LU1", "DS1", "DB1", "DP1", "AG1", "OLD1", "MS1"):
 		it[n] = make_item(code(n), company)
 	fresh, brand = "RS Fresh %s" % suffix, "RS Brand %s" % suffix
@@ -679,6 +729,13 @@ def build():
 	on(rec, 70, (it["MS1"], wh["M"], 100))
 	sell("MS1", "M", every_day(56, 1), 1)
 
+	# --- promotions: 2 a day at full price, 6 a day on 5 days at 30% off
+	for n in ("PR1", "PR2", "PR3"):
+		on(rec, 70, (it[n], wh["O1"], 400))
+		for k in every_day(56, 1):
+			on_promo = k in PROMO_DAYS
+			on(sales, k, (it[n], wh["O1"], 6 if on_promo else 2, 10, None, 30 if on_promo else 0))
+
 	# --- assortment gap: AG1 sells only in Outlet 2
 	on(rec, 70, (it["AG1"], wh["O2"], 100))
 	sell("AG1", "O2", every_day(56, 1), 1)
@@ -737,6 +794,17 @@ def build():
 	sales_order(company, customer, [(it["SO1"], wh["O1"], 10)], today())
 	sales_invoice(company, customer, [(it["A1"], wh["O1"], 10, 10)], today(), time="09:00:00")
 
+	# planned promotions, made after the invoices so none of them prices one
+	rules = {
+		"PR2": pricing_rule(company, "RS PR2 week " + suffix, "Item Code", [it["PR2"]], add_days(today(), 3), add_days(today(), 7)),
+		"PR3": pricing_rule(company, "RS PR3 group " + suffix, "Item Group", [promo_parent], add_days(today(), 1), add_days(today(), 2)),
+		# none of these count for PR1 in O1
+		"expired": pricing_rule(company, "RS PR1 old " + suffix, "Item Code", [it["PR1"]], add_days(today(), -20), add_days(today(), -10)),
+		"standing": pricing_rule(company, "RS PR1 standing " + suffix, "Item Code", [it["PR1"]], add_days(today(), 1), None),
+		"elsewhere": pricing_rule(company, "RS PR1 O2 " + suffix, "Item Code", [it["PR1"]], add_days(today(), 1), add_days(today(), 5), warehouse=wh["O2"]),
+		"disabled": pricing_rule(company, "RS PR1 off " + suffix, "Item Code", [it["PR1"]], add_days(today(), 1), add_days(today(), 5), disable=1),
+	}
+
 	ds = {
 		"version": DATASET_VERSION,
 		"date": str(today()),
@@ -748,6 +816,8 @@ def build():
 		"customer": customer,
 		"suppliers": {"S1": s1, "S2": s2, "S3": s3},
 		"batches": {"A": batch_a, "B": batch_b},
+		"pricing_rules": rules,
+		"promo_parent": promo_parent,
 		"pos_invoices": out["pos"],
 		"pos_profile": profile,
 	}

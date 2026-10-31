@@ -142,23 +142,30 @@ def pos_reserved(whs, items=None):
 	return out
 
 
+DISCOUNT_MIN = 0.05  # a line sold this far under its price list rate is discounted
+
+
 def sales(company, whs, start, end, items=None):
-	"""{(item, warehouse): {date: [qty, value]}} in stock units and company
-	currency, net of returns. POS Invoices, plus Sales Invoices that are not a
-	POS consolidation, plus the parts of bundles sold on either."""
+	"""{(item, warehouse): {date: [qty, value, discounted qty]}} in stock units
+	and company currency, net of returns. POS Invoices, plus Sales Invoices
+	that are not a POS consolidation, plus the parts of bundles sold on either.
+	Discounted: sold at least 5% under the line's price list rate (a Pricing
+	Rule, a LumenPOS promotion or a manual discount, all kept on the line)."""
 	out = {}
-	args = {"company": company, "whs": _in(whs), "start": start, "end": end, "items": _in(items or [])}
+	args = {"company": company, "whs": _in(whs), "start": start, "end": end, "items": _in(items or []), "off": 1 - DISCOUNT_MIN}
 
 	def add(rows):
-		for item, wh, day, qty, value in rows:
+		for item, wh, day, qty, value, off in rows:
 			d = out.setdefault((item, wh), {})
-			cell = d.setdefault(getdate(day), [0.0, 0.0])
+			cell = d.setdefault(getdate(day), [0.0, 0.0, 0.0])
 			cell[0] += flt(qty)
 			cell[1] += flt(value)
+			cell[2] += flt(off)
 
 	add(
 		frappe.db.sql(
-			"""select i.item_code, i.warehouse, p.posting_date, sum(i.stock_qty), sum(i.base_net_amount)
+			"""select i.item_code, i.warehouse, p.posting_date, sum(i.stock_qty), sum(i.base_net_amount),
+				sum(case when i.price_list_rate > 0 and i.rate <= i.price_list_rate * %(off)s then i.stock_qty else 0 end)
 			from `tabPOS Invoice Item` i join `tabPOS Invoice` p on p.name = i.parent
 			where p.docstatus=1 and p.company=%(company)s and p.posting_date between %(start)s and %(end)s
 				and i.warehouse in %(whs)s""" + _items_clause(items, "i.item_code") + """
@@ -168,7 +175,8 @@ def sales(company, whs, start, end, items=None):
 	)
 	add(
 		frappe.db.sql(
-			"""select i.item_code, i.warehouse, s.posting_date, sum(i.stock_qty), sum(i.base_net_amount)
+			"""select i.item_code, i.warehouse, s.posting_date, sum(i.stock_qty), sum(i.base_net_amount),
+				sum(case when i.price_list_rate > 0 and i.rate <= i.price_list_rate * %(off)s then i.stock_qty else 0 end)
 			from `tabSales Invoice Item` i join `tabSales Invoice` s on s.name = i.parent
 			where s.docstatus=1 and s.is_consolidated=0 and s.company=%(company)s
 				and s.posting_date between %(start)s and %(end)s
@@ -181,7 +189,7 @@ def sales(company, whs, start, end, items=None):
 		cond = " and s.is_consolidated=0" if parent == "Sales Invoice" else ""
 		add(
 			frappe.db.sql(
-				"""select i.item_code, i.warehouse, s.posting_date, sum(i.qty), 0
+				"""select i.item_code, i.warehouse, s.posting_date, sum(i.qty), 0, 0
 				from `tabPacked Item` i join `tab{parent}` s on s.name = i.parent
 				where i.parenttype=%(parent)s and s.docstatus=1 and s.company=%(company)s{cond}
 					and s.posting_date between %(start)s and %(end)s
@@ -452,4 +460,108 @@ def lead_samples(company, since):
 		days = (getdate(received) - getdate(ordered)).days
 		if days >= 0:
 			out.setdefault(supplier, []).append(days)
+	return out
+
+
+# ---- 0.7.0: planned promotions
+
+
+def _promo(source, name, title, start, end):
+	return {
+		"source": source,
+		"name": name,
+		"title": title or name,
+		"start": getdate(start),
+		"end": getdate(end),
+		"warehouses": set(),
+		"all_items": 0,
+		"items": set(),
+		"groups": set(),
+		"brands": set(),
+		"exclude_items": set(),
+		"exclude_groups": set(),
+		"exclude_brands": set(),
+		"weekdays": set(),
+	}
+
+
+def promotions(company, start, end):
+	"""Promotions planned between start and end (both included) that may lift
+	sales: ERPNext selling Pricing Rules with an end date (a rule with no end
+	date is a standing price, already in the sales history), and, when
+	LumenPOS is installed, its active POS Promotions with an end date and no
+	coupon. Read only."""
+	out = []
+	rules = frappe.db.sql(
+		"""select name, title, apply_on, valid_from, valid_upto, warehouse
+		from `tabPricing Rule`
+		where selling = 1 and disable = 0 and valid_upto is not null
+			and valid_upto >= %(start)s and ifnull(valid_from, %(start)s) <= %(end)s
+			and ifnull(company, '') in ('', %(company)s)
+			and apply_on in ('Item Code', 'Item Group', 'Brand')""",
+		{"start": start, "end": end, "company": company},
+		as_dict=True,
+	)
+	for r in rules:
+		p = _promo("Pricing Rule", r.name, r.title, r.valid_from or start, r.valid_upto)
+		if r.warehouse:
+			p["warehouses"].add(r.warehouse)
+		child = {"Item Code": ("Pricing Rule Item Code", "item_code", "items"),
+			"Item Group": ("Pricing Rule Item Group", "item_group", "groups"),
+			"Brand": ("Pricing Rule Brand", "brand", "brands")}[r.apply_on]
+		for (v,) in frappe.db.sql(
+			"select {0} from `tab{1}` where parent = %s and parenttype = 'Pricing Rule'".format(child[1], child[0]), r.name
+		):
+			if v:
+				p[child[2]].add(v)
+		out.append(p)
+
+	if frappe.db.table_exists("POS Promotion"):
+		days = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+		promos = frappe.db.sql(
+			"""select name, title, start_date, end_date, apply_on_all, {0}
+			from `tabPOS Promotion`
+			where status = 'Active' and ifnull(requires_coupon, 0) = 0 and end_date is not null
+				and ifnull(promotion_type, '') != 'Spend and Save'
+				and end_date >= %(start)s and ifnull(start_date, %(start)s) <= %(end)s
+				and ifnull(company, '') in ('', %(company)s)""".format(", ".join(days)),
+			{"start": start, "end": end, "company": company},
+			as_dict=True,
+		)
+		for r in promos:
+			p = _promo("POS Promotion", r.name, r.title, r.start_date or start, r.end_date)
+			p["all_items"] = 1 if r.apply_on_all else 0
+			p["weekdays"] = {i for i, d in enumerate(days) if r.get(d)}
+			for (wh,) in frappe.db.sql(
+				"""select pp.warehouse from `tabPOS Promotion Profile` x join `tabPOS Profile` pp on pp.name = x.pos_profile
+				where x.parent = %s and x.parenttype = 'POS Promotion' and ifnull(pp.warehouse, '') != ''""",
+				r.name,
+			):
+				p["warehouses"].add(wh)
+			for row in frappe.db.sql(
+				"""select applies_to, item_code, item_group, brand, ifnull(exclude, 0) as exclude, ifnull(role, 'Buy') as role
+				from `tabPOS Promotion Item` where parent = %s and parenttype = 'POS Promotion'""",
+				r.name,
+				as_dict=True,
+			):
+				if row.role == "Get" and not row.exclude:
+					continue  # the free or discounted "get" item of a Buy X Get Y
+				key, value = {"Item": ("items", row.item_code), "Item Group": ("groups", row.item_group), "Brand": ("brands", row.brand)}.get(
+					row.applies_to, (None, None)
+				)
+				if key and value:
+					p[("exclude_" + key) if row.exclude else key].add(value)
+			out.append(p)
+	return out
+
+
+def group_parents(groups):
+	"""{item group: set of it and every group above it}."""
+	if not groups:
+		return {}
+	tree = {r.name: r for r in frappe.db.sql("select name, lft, rgt from `tabItem Group`", as_dict=True)}
+	out = {}
+	for g in groups:
+		me = tree.get(g)
+		out[g] = {n for n, r in tree.items() if me and r.lft <= me.lft and r.rgt >= me.rgt} | {g}
 	return out

@@ -59,6 +59,7 @@ def columns(budget_on=True, with_budget=False):
 		{"fieldname": "on_shelf", "label": _("On shelf"), "fieldtype": "Float", "width": 90},
 		{"fieldname": "daily_sales", "label": _("Daily sales"), "fieldtype": "Float", "precision": 2, "width": 95},
 		{"fieldname": "season_factor", "label": _("Season effect"), "fieldtype": "Float", "precision": 2, "width": 105},
+		{"fieldname": "promo_factor", "label": _("Promotion effect"), "fieldtype": "Float", "precision": 2, "width": 120},
 		{"fieldname": "forecast", "label": _("Expected daily sales"), "fieldtype": "Float", "precision": 2, "width": 140},
 		{"fieldname": "forecast_basis", "label": _("Based on"), "fieldtype": "Data", "width": 150},
 		{"fieldname": "days_left", "label": _("Days left"), "fieldtype": "Float", "precision": 1, "width": 85},

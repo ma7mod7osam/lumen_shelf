@@ -160,3 +160,54 @@ class TestModel030(unittest.TestCase):
 		n, conf, lift = got[("a", "b")]
 		self.assertEqual((n, conf), (3, 1.0))
 		self.assertAlmostEqual(lift, 1.0 / (3 / 4.0))
+
+
+class TestPromotionModel(unittest.TestCase):
+	def promo(self, **kw):
+		p = {
+			"warehouses": set(), "all_items": 0, "items": set(), "groups": set(), "brands": set(),
+			"exclude_items": set(), "exclude_groups": set(), "exclude_brands": set(), "weekdays": set(),
+			"start": datetime.date(2026, 11, 2), "end": datetime.date(2026, 11, 8),
+		}
+		p.update(kw)
+		return p
+
+	def test_promotion_days_need_half_discounted(self):
+		days = [datetime.date(2026, 10, d) for d in (1, 2, 3, 4)]
+		by_day = {days[0]: (4, 40, 2), days[1]: (4, 40, 1.9), days[2]: (0, 0, 0), days[3]: (4, 40, 4)}
+		self.assertEqual(model.promotion_days(days, set(days[:3]), by_day), {days[0]})
+
+	def test_lift_needs_enough_days(self):
+		days = [datetime.date(2026, 9, 1) + datetime.timedelta(days=i) for i in range(20)]
+		sold = {d: 2.0 for d in days}
+		promo = set(days[:3])
+		for d in promo:
+			sold[d] = 8.0
+		self.assertEqual(model.lift(set(days), promo, sold), (4.0, 8.0, 2.0))
+		self.assertIsNone(model.lift(set(days), set(days[:2]), sold))  # 2 promotion days
+		self.assertIsNone(model.lift(set(days[:16]), promo, sold))  # 13 normal days
+
+	def test_promotion_factor(self):
+		self.assertEqual(model.promotion_factor(3.0, {0, 1, 5, 30}, 10), (1 + 2 * 3 / 10.0, 3))
+		self.assertEqual(model.promotion_factor(9.0, {0}, 10), (1 + 4 / 10.0, 1))  # lift used up to 5
+		self.assertEqual(model.promotion_factor(0.5, {0}, 10), (1.0, 1))  # a promotion never lowers it
+		self.assertEqual(model.promotion_factor(None, {0, 1}, 10), (1.0, 2))
+
+	def test_promotion_applies(self):
+		groups = {"Drinks", "All Item Groups"}
+		self.assertTrue(model.promotion_applies(self.promo(items={"A"}), "A", groups, None, "W1"))
+		self.assertFalse(model.promotion_applies(self.promo(items={"A"}), "B", groups, None, "W1"))
+		self.assertTrue(model.promotion_applies(self.promo(groups={"Drinks"}), "B", groups, None, "W1"))
+		self.assertTrue(model.promotion_applies(self.promo(brands={"X"}), "B", groups, "X", "W1"))
+		self.assertFalse(model.promotion_applies(self.promo(items={"A"}, warehouses={"W2"}), "A", groups, None, "W1"))
+		self.assertTrue(model.promotion_applies(self.promo(all_items=1), "B", groups, None, "W1"))
+		self.assertFalse(model.promotion_applies(self.promo(all_items=1, exclude_items={"B"}), "B", groups, None, "W1"))
+		self.assertFalse(model.promotion_applies(self.promo(all_items=1, exclude_groups={"Drinks"}), "B", groups, None, "W1"))
+		self.assertFalse(model.promotion_applies(self.promo(all_items=1, exclude_brands={"X"}), "B", groups, "X", "W1"))
+
+	def test_promotion_offsets_and_weekdays(self):
+		as_of = datetime.date(2026, 11, 1)  # a Sunday
+		self.assertEqual(model.promotion_offsets([self.promo()], as_of, 30), {1, 2, 3, 4, 5, 6, 7})
+		fridays = self.promo(weekdays={4})
+		self.assertEqual(model.promotion_offsets([fridays], as_of, 30), {5})
+		self.assertEqual(model.promotion_offsets([self.promo()], as_of, 3), {1, 2})

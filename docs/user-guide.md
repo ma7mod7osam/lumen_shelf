@@ -1,6 +1,6 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.6.0 (phase 3, and material requests from the till).
+*Applies to Lumen Shelf v0.7.0 (promotions).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
@@ -46,6 +46,7 @@ fill in. On the first day it uses these defaults:
 | Submit the requests | On |
 | Keep ERPNext's reorder levels up to date (automatic mode) | Off |
 | Daily alert to Shelf Managers | On |
+| Learn from promotions | On |
 
 The supplier comes from the item's **Item Defaults** for the company, or else
 from the item's most recent Purchase Order. The main warehouse is found on its
@@ -53,7 +54,7 @@ own (section 5). The settings page shows what was found.
 
 ## 2. The screens
 
-All six are ERPNext reports, so they sort, filter, export to Excel and print
+All seven are ERPNext reports, so they sort, filter, export to Excel and print
 like any other report, in English or Arabic, light or dark.
 
 ### Running low (Shelf Running Low)
@@ -66,7 +67,8 @@ Per outlet, the items that will run out before a new delivery can arrive.
 | Daily sales | Average units sold per day the item was in stock |
 | Season effect | How much more (above 1) or less (below 1) sold last year in the weeks ahead. Blank when there is no season to learn from |
 | Expected daily sales | The base x season effect. The reorder point and the suggestion use this |
-| Based on | Where the base comes from: Sales history, Demand pattern, or Similar items (brand or group) |
+| Promotion effect | How much a promotion planned within the lead time and cover raises the expected sales. Blank when there is none |
+| Based on | Where the base comes from: Sales history, Sales history with promotions left out, Demand pattern, or Similar items (brand or group) |
 | Days left | On shelf divided by daily sales |
 | On order | Open Purchase Orders and open Material Requests (purchase and transfer) |
 | Reorder point | Below this, restock now |
@@ -219,6 +221,14 @@ sold something count as outlets, so store rooms are never listed, and never
 the main warehouse. **Starting qty**: the typical (middle) daily sales where it
 sells x (lead time + days of cover).
 
+### Promotions (Shelf Promotions)
+
+Per outlet and item: **Promotion days** (days it sold mostly at a discount),
+**Daily sales, normal days** and **on promotion**, **Lift (times)**, and the
+**Next promotion** planned within the lead time and cover: where it is set
+(ERPNext pricing rule or LumenPOS promotion), when it starts and ends, its
+days ahead, its **Promotion effect** and the **Extra qty planned** for it.
+
 ### Forecast accuracy (Shelf Forecast Accuracy)
 
 What Lumen Shelf forecast 14 days ago for each outlet and item, against what
@@ -270,6 +280,29 @@ minimum order quantity. A transfer is rounded down to whole units.
   takes the typical (middle) daily sales of items of the same brand and item
   group in the same warehouse that have been in stock 28 days or more, if
   there are 3 of them. Otherwise items of the same group (3 or more).
+
+**Promotions.** A promotion day for an item in an outlet is a day on which at
+least half of what it sold went at 5% or more under the line's price list
+rate (an ERPNext pricing rule, a LumenPOS promotion or a manual discount, all
+kept on the invoice line).
+
+- Those days are left out of the base (and of how much sales swing), so a
+  past promotion does not make the next order too big. It needs 14 normal
+  days in stock.
+- **Lift** = average sales on promotion days / average on the other days in
+  stock. It needs 3 promotion days and 14 normal days.
+- A **planned promotion** that covers the item in that outlet raises the
+  expected sales over the lead time and cover: x (1 + (lift - 1) x promotion
+  days in that period / days in that period). The lift is used up to 5 times,
+  and never lowers anything. Without a measured lift, nothing changes, but
+  the promotion is still listed.
+- Planned promotions read: ERPNext selling **Pricing Rules** with an end date
+  (on an item, an item group and the groups under it, or a brand, for the
+  company, and for one warehouse when the rule names it), and, when LumenPOS
+  is installed, its active **promotions** with an end date and no coupon
+  (their items, groups, brands, exclusions, POS profiles' warehouses and
+  weekdays). A rule with no end date is a standing price: it is already in
+  the sales history.
 
 **Shelf life.** An item with a Shelf Life In Days never gets more cover than
 its shelf life less the lead time (at least 1 day), so nothing is bought to
@@ -344,8 +377,8 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
   purchases within a budget**, **Show forecast accuracy**, **Forecast by demand
   pattern**, **Forecast new items from similar ones**, **Watch expiry dates**,
   **Suggest what to do with stock that does not sell**, **Show items bought
-  together**, **Show assortment gaps** and **Create material requests from the
-  suggestions** switch those parts off.
+  together**, **Show assortment gaps**, **Learn from promotions** and **Create
+  material requests from the suggestions** switch those parts off.
 - **Submit the requests**: on, the button submits the requests. Off, it saves
   them as drafts.
 - **Keep ERPNext's reorder levels up to date** (automatic mode, off by
@@ -411,6 +444,15 @@ The contract, version 2 (`lumen_shelf.api`):
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.7.0 (2026-10-31)
+
+- Promotions: days sold mostly at a discount are left out of the normal
+  sales, the lift of each item is measured, and a promotion planned in ERPNext
+  (a pricing rule with an end date) or in LumenPOS raises the suggestion
+  before it starts.
+- New report Promotions. Running low shows the promotion effect.
+- Switch **Learn from promotions**.
 
 ### 0.6.0 (2026-10-31)
 

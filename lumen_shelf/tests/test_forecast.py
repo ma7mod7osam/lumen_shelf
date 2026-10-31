@@ -41,8 +41,8 @@ class TestForecast(RestockCase):
 	def check_levels(self, p, f):
 		"""Expected daily sales = base x season, and the levels follow it. The
 		base is the history, or the pattern's (checked in test_analysis)."""
-		self.assertAlmostEqual(p["forecast"], p["base_speed"] * f, 9)
-		lv = oracle.levels(p["base_speed"] * f, p["sigma"] * f, p["lead_time"], Z95, COVER)
+		self.assertAlmostEqual(p["forecast"], p["base_speed"] * f * p["promo_factor"], 9)
+		lv = oracle.levels(p["forecast"], p["base_sigma"] * f, p["lead_time"], Z95, COVER)
 		self.assertAlmostEqual(p["rop"], lv.rop, 6)
 		self.assertAlmostEqual(p["target"], lv.target, 6)
 

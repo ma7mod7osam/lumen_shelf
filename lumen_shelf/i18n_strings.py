@@ -56,6 +56,11 @@ EXTRA = [
 	"Shelf Assortment Gaps",
 	"Bought together",
 	"Assortment gaps",
+	"Shelf Promotions",
+	"Promotions",
+	"Sales history, promotions left out",
+	"ERPNext pricing rule",
+	"LumenPOS promotion",
 ]
 
 

@@ -241,3 +241,29 @@ def croston_sba(series, alpha=0.1):
 				p = alpha * since + (1 - alpha) * p
 			since = 0
 	return None if sales < 2 else (1 - alpha / 2) * z / p
+
+
+# ---- 0.7.0, written from the user guide's wording
+
+
+def discounted(company, start, end):
+	"""{(item, warehouse): {date: units sold at 5% or more under the price
+	list}} from the invoice lines themselves."""
+	out = {}
+	for doctype, extra in (("POS Invoice", {}), ("Sales Invoice", {"is_consolidated": 0})):
+		filters = {"company": company, "docstatus": 1, "posting_date": ["between", [start, end]]}
+		filters.update(extra)
+		for name in frappe.get_all(doctype, filters=filters, pluck="name"):
+			doc = frappe.get_doc(doctype, name)
+			for i in doc.items:
+				if flt(i.price_list_rate) > 0 and flt(i.rate) <= flt(i.price_list_rate) * 0.95:
+					cell = out.setdefault((i.item_code, i.warehouse), {})
+					cell[getdate(doc.posting_date)] = cell.get(getdate(doc.posting_date), 0.0) + flt(i.stock_qty)
+	return out
+
+
+def weighted_mean(days, values, end, weeks):
+	"""The recent-weeks-weigh-more mean over `days` (the user guide's rule)."""
+	w = {d: weeks - (end - d).days // 7 for d in days}
+	total = sum(w.values())
+	return sum(w[d] * values.get(d, 0.0) for d in days) / total if total else 0.0

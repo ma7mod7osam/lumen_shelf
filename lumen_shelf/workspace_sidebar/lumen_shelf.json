@@ -1,6 +1,6 @@
 {
  "app": "lumen_shelf",
- "creation": "2026-10-31 18:00:00.000000",
+ "creation": "2026-10-31 22:00:00.000000",
  "docstatus": 0,
  "doctype": "Workspace Sidebar",
  "header_icon": "stock",
@@ -97,13 +97,25 @@
    "keep_closed": 0,
    "show_arrow": 0,
    "type": "Link",
+   "link_type": "Report",
+   "label": "Promotions",
+   "link_to": "Shelf Promotions",
+   "icon": ""
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "show_arrow": 0,
+   "type": "Link",
    "link_type": "DocType",
    "label": "Lumen Shelf Settings",
    "link_to": "Lumen Shelf Settings",
    "icon": "settings"
   }
  ],
- "modified": "2026-10-31 18:00:00.000000",
+ "modified": "2026-10-31 22:00:00.000000",
  "modified_by": "Administrator",
  "module": "Lumen Shelf",
  "name": "Lumen Shelf",

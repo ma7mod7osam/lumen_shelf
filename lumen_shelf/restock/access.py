@@ -31,6 +31,7 @@ FEATURES = {
 	"bought_together": "bought_together",
 	"assortment_gaps": "assortment_gaps",
 	"material_requests": "material_requests",
+	"promotions": "promotions",
 }
 
 # Who may turn suggestions into Material Requests: not Shelf User, who only

@@ -27,6 +27,7 @@ it buys what it is left short after this round of transfers.
 import datetime
 import hashlib
 import json
+import math
 
 import frappe
 from frappe.utils import flt, getdate, nowdate
@@ -64,6 +65,8 @@ NEW_ITEM_DAYS = 14  # first on the shelf within the last 14 days: a new item
 SIMILAR_MIN_DAYS = 28  # a similar item counts once it has this many days in stock
 SIMILAR_MIN_ITEMS = 3
 RETURN_DAYS = 60  # bought this recently: it can still go back to the supplier
+PROMO_LOOKAHEAD = 120  # planned promotions are read this many days ahead
+BASIS_NO_PROMO = "history without promotions"
 TOGETHER_MAX = 5000  # pairs kept in the result
 
 
@@ -168,6 +171,10 @@ def _compute(company, as_of, items, s):
 	samples = data.lead_samples(company, as_of - datetime.timedelta(days=LEAD_LOOKBACK_DAYS))
 	seasons = _seasons(company, usable, as_of, weeks, items, s)
 	result["season"] = {"calendar": seasons.calendar, "basis": seasons.basis, "errors": seasons.errors}
+	promos = (
+		data.promotions(company, as_of, as_of + datetime.timedelta(days=PROMO_LOOKAHEAD - 1)) if s["promotions"] else []
+	)
+	parents = data.group_parents({m.item_group for m in master.values()}) if promos else {}
 	threshold = s["trend_threshold"] / 100.0
 
 	def buy_lead(item):
@@ -207,6 +214,26 @@ def _compute(company, as_of, items, s):
 				rate = model.sba(days, stocked, sold_by_day)
 				if rate is not None:
 					base, base_basis = rate, "pattern"
+		promo, lifted, offsets, upcoming = set(), None, set(), None
+		base_sigma = sigma
+		if s["promotions"] and wh != main:
+			# days sold mostly at a discount are not normal days: left out of the
+			# base, and compared with the normal ones for the lift
+			promo = model.promotion_days(days, stocked, by_day)
+			lifted = model.lift(stocked, promo, sold_by_day)
+			normal = set(stocked) - promo
+			if promo and base_basis == "history" and len(normal) >= model.PROMO_MIN_NORMAL:
+				base, base_sigma, _n = model.speed_and_sigma(days, normal, demand, end, weeks)
+				base_basis = BASIS_NO_PROMO
+			mine = [
+				x
+				for x in promos
+				if model.promotion_applies(x, item, parents.get(it.item_group, {it.item_group}), it.brand, wh)
+			]
+			offsets = model.promotion_offsets(mine, as_of, PROMO_LOOKAHEAD)
+			if offsets:
+				first = min(mine, key=lambda x: (max(x["start"], as_of), x["name"]))
+				upcoming = {"source": first["source"], "name": first["name"], "title": first["title"], "start": str(first["start"]), "end": str(first["end"])}
 		first_in = next((i for i, d in enumerate(days) if d in stocked), None)
 		lost_qty = lost_value = 0.0
 		if s["lost_sales"] and wh != main and speed > model.EPS:
@@ -251,6 +278,15 @@ def _compute(company, as_of, items, s):
 			"cv2": cv2,
 			"base_speed": base,
 			"base_basis": base_basis,
+			"base_sigma": base_sigma,
+			"promo_days": len(promo),
+			"lift": lifted[0] if lifted else None,
+			"promo_speed": lifted[1] if lifted else None,
+			"normal_speed": lifted[2] if lifted else None,
+			"promo_next": upcoming,
+			"promo_factor": 1.0,
+			"promo_days_ahead": 0,
+			"_promo_offsets": offsets,
 			"brand": it.brand,
 			"shelf_life": flt(it.shelf_life_in_days) if s["expiry"] else 0.0,
 			"batch_expiry": 1 if (it.has_batch_no and it.has_expiry_date) else 0,
@@ -420,6 +456,7 @@ def _compute(company, as_of, items, s):
 	for p in pairs.values():
 		p.pop("_sold_by_day", None)
 		p.pop("_stocked", None)
+		p.pop("_promo_offsets", None)
 		p["days_left"] = model.days_left(p["on_shelf"], p.get("forecast", p["speed"]))
 	result["pairs"] = [pairs[k] for k in sorted(pairs)]
 	result["lines"] = lines
@@ -525,10 +562,13 @@ def _levels(p, lead, z, cover, position=None, seasons=None):
 	f, basis = seasons.factor(p["item_code"], p["item_group"], lead + cover) if seasons else (1.0, None)
 	p["season_factor"] = f
 	p["season_basis"] = basis
-	p["forecast"] = p.get("base_speed", p["speed"]) * f
-	p["safety"] = model.safety_stock(z, p["sigma"] * f, lead)
-	p["rop"] = model.reorder_point(p["forecast"], lead, p["safety"])
 	p["cover"] = model.shelf_life_cover(cover, p.get("shelf_life"), lead)
+	# a promotion planned within the lead time and cover raises what sells in it
+	horizon = int(math.ceil(lead + p["cover"] - model.EPS))
+	p["promo_factor"], p["promo_days_ahead"] = model.promotion_factor(p.get("lift"), p.get("_promo_offsets") or (), horizon)
+	p["forecast"] = p.get("base_speed", p["speed"]) * f * p["promo_factor"]
+	p["safety"] = model.safety_stock(z, p.get("base_sigma", p["sigma"]) * f, lead)
+	p["rop"] = model.reorder_point(p["forecast"], lead, p["safety"])
 	p["target"] = model.order_up_to(p["rop"], p["forecast"], p["cover"])
 	pos = p["position"] if position is None else position
 	p["position_after"] = pos

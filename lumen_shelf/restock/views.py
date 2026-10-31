@@ -35,9 +35,12 @@ BASIS_LABELS = {
 	"pattern": "Demand pattern",
 	"similar brand": "Similar items (brand)",
 	"similar group": "Similar items (group)",
+	engine.BASIS_NO_PROMO: "Sales history, promotions left out",
 }
 
 PATTERNS = (model.PATTERN_SMOOTH, model.PATTERN_ERRATIC, model.PATTERN_INTERMITTENT, model.PATTERN_LUMPY)
+
+PROMO_SOURCES = {"Pricing Rule": "ERPNext pricing rule", "POS Promotion": "LumenPOS promotion"}
 
 GAP_MIN_SPEED = 0.5  # sells at least this many a day in another outlet
 
@@ -145,6 +148,8 @@ def running_low(result, allowed, warehouse=None, item_group=None, source=None, b
 				"forecast": _r(p.get("forecast", p["speed"]), 3),
 				"season_factor": _r(p.get("season_factor"), 2) if p.get("season_basis") else None,
 				"season_basis": p.get("season_basis"),
+				"promo_factor": _r(p.get("promo_factor"), 2) if (p.get("promo_factor") or 1.0) > 1.0 + model.EPS else None,
+				"promo_days_ahead": p.get("promo_days_ahead") or None,
 				"forecast_basis_key": p.get("base_basis") or "history",
 				"forecast_basis": _(BASIS_LABELS.get(p.get("base_basis") or "history")),
 				"days_left": _r(p["days_left"], 1),
@@ -419,4 +424,43 @@ def assortment_gaps(result, allowed, warehouse=None):
 				}
 			)
 	rows.sort(key=lambda r: (r["warehouse"], -(r["daily_sales"] or 0), r["item_code"]))
+	return rows
+
+
+def promotions(result, allowed, warehouse=None):
+	"""Per outlet and item: the days sold mostly at a discount, how much more
+	sold on them (the lift), and a promotion planned within the lead time and
+	cover, with the extra units it adds to the suggestion."""
+	rows = []
+	for p in result["pairs"]:
+		if p["is_main"] or not (p.get("promo_days") or p.get("promo_next")):
+			continue
+		if warehouse and p["warehouse"] != warehouse:
+			continue
+		if not _visible(allowed, p["warehouse"]):
+			continue
+		nxt = p.get("promo_next") or {}
+		factor = p.get("promo_factor") or 1.0
+		plain = p.get("forecast", 0.0) / factor if factor > model.EPS else 0.0
+		horizon = (p.get("lead_time") or 0.0) + (p.get("cover") or 0.0)
+		rows.append(
+			{
+				"item_code": p["item_code"],
+				"item_name": p["item_name"],
+				"warehouse": p["warehouse"],
+				"promo_days": p.get("promo_days") or None,
+				"normal_speed": _r(p.get("normal_speed"), 2),
+				"promo_speed": _r(p.get("promo_speed"), 2),
+				"lift": _r(p.get("lift"), 2),
+				"next_promotion": nxt.get("title"),
+				"next_source": PROMO_SOURCES.get(nxt.get("source")) and _(PROMO_SOURCES[nxt["source"]]),
+				"next_from": nxt.get("start"),
+				"next_to": nxt.get("end"),
+				"promo_days_ahead": p.get("promo_days_ahead") or None,
+				"promo_factor": _r(factor, 2) if factor > 1.0 + model.EPS else None,
+				"extra_qty": _q((p.get("forecast", 0.0) - plain) * horizon) if factor > 1.0 + model.EPS else None,
+				"stock_uom": p["stock_uom"],
+			}
+		)
+	rows.sort(key=lambda r: (r["next_from"] or "9999", r["warehouse"], -(r["lift"] or 0), r["item_code"]))
 	return rows

@@ -15,6 +15,7 @@ Words used throughout:
   position     on shelf + on order - reserved for sales orders
 """
 
+import datetime
 import math
 
 EPS = 1e-9
@@ -365,4 +366,72 @@ def basket_pairs(baskets, min_together=3):
 		for x, y in ((a, b), (b, a)):
 			conf = n / float(count[x])
 			out.append((x, y, n, conf, conf / (count[y] / float(total))))
+	return out
+
+
+# ---- 0.7.0: promotions
+
+PROMO_SHARE = 0.5  # a promotion day: at least half the units sold at a discount
+PROMO_MIN_DAYS = 3  # promotion days needed to measure a lift
+PROMO_MIN_NORMAL = 14  # normal in-stock days needed beside them
+LIFT_MAX = 5.0  # a measured lift is used up to this many times the normal sales
+
+
+def promotion_days(days, stocked, by_day):
+	"""In-stock days on which at least half of what sold was sold at a
+	discount. by_day: {date: (qty, value, discounted qty)}."""
+	out = set()
+	for d in days:
+		v = by_day.get(d)
+		if d in stocked and v and v[0] > EPS and len(v) > 2 and v[2] >= PROMO_SHARE * v[0] - EPS:
+			out.add(d)
+	return out
+
+
+def lift(stocked, promo, sold_by_day):
+	"""(lift, sales a day on promotion, sales a day otherwise), plain means over
+	in-stock days, or None when there are too few days of either kind."""
+	normal = [d for d in stocked if d not in promo]
+	if len(promo) < PROMO_MIN_DAYS or len(normal) < PROMO_MIN_NORMAL:
+		return None
+	on = sum(sold_by_day.get(d, 0.0) for d in promo) / float(len(promo))
+	off = sum(sold_by_day.get(d, 0.0) for d in normal) / float(len(normal))
+	if off <= EPS:
+		return None
+	return on / off, on, off
+
+
+def promotion_factor(lift_value, offsets, horizon_days):
+	"""How much the expected daily sales over the next `horizon_days` rise
+	because promotion days fall in them: 1 + (lift - 1) x share of those days
+	on promotion. offsets: days from today (0 = today) with a promotion."""
+	n = sum(1 for o in offsets if 0 <= o < horizon_days)
+	if not lift_value or horizon_days <= 0:
+		return 1.0, n
+	used = min(max(lift_value, 1.0), LIFT_MAX)
+	return 1.0 + (used - 1.0) * n / float(horizon_days), n
+
+
+def promotion_applies(promo, item, groups, brand, warehouse):
+	"""Does a planned promotion cover this item in this warehouse? groups: the
+	item's group and every group above it (a rule on a parent group covers it,
+	as in ERPNext)."""
+	if promo["warehouses"] and warehouse not in promo["warehouses"]:
+		return False
+	if item in promo["exclude_items"] or groups & promo["exclude_groups"] or (brand and brand in promo["exclude_brands"]):
+		return False
+	if promo["all_items"]:
+		return True
+	return item in promo["items"] or bool(groups & promo["groups"]) or bool(brand and brand in promo["brands"])
+
+
+def promotion_offsets(promos, as_of, max_days):
+	"""Days from as_of (0 = as_of) within max_days on which any of the
+	promotions runs, honouring each one's weekdays (0 = Monday)."""
+	out = set()
+	for p in promos:
+		for o in range(max_days):
+			d = as_of + datetime.timedelta(days=o)
+			if p["start"] <= d <= p["end"] and (not p["weekdays"] or d.weekday() in p["weekdays"]):
+				out.add(o)
 	return out

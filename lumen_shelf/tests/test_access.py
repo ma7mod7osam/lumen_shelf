@@ -114,14 +114,21 @@ class TestAccess(unittest.TestCase):
 
 	def test_feature_switches(self):
 		set_settings(
-			self.company, self.wh["M"], outlet_transfers=0, stock_health=0, forecast_accuracy=0, bought_together=0, assortment_gaps=0
+			self.company,
+			self.wh["M"],
+			outlet_transfers=0,
+			stock_health=0,
+			forecast_accuracy=0,
+			bought_together=0,
+			assortment_gaps=0,
+			promotions=0,
 		)
 		frappe.set_user(self.viewer)
 		with self.assertRaises(frappe.ValidationError):
 			views.load("transfers", self.company, use_cache=False)
 		with self.assertRaises(frappe.ValidationError):
 			views.load("stock_health", self.company, use_cache=False)
-		for feature in ("forecast_accuracy", "bought_together", "assortment_gaps"):
+		for feature in ("forecast_accuracy", "bought_together", "assortment_gaps", "promotions"):
 			with self.assertRaises(frappe.ValidationError):
 				views.load(feature, self.company, use_cache=False)
 		views.load("running_low", self.company, items=self.items(), use_cache=False)
@@ -144,7 +151,7 @@ class TestAccess(unittest.TestCase):
 		from frappe.desk.query_report import run
 
 		frappe.set_user(self.viewer)
-		for name in ("Shelf Running Low", "Shelf Transfers", "Shelf Stock Health", "Shelf Forecast Accuracy", "Shelf Bought Together", "Shelf Assortment Gaps"):
+		for name in ("Shelf Running Low", "Shelf Transfers", "Shelf Stock Health", "Shelf Forecast Accuracy", "Shelf Bought Together", "Shelf Assortment Gaps", "Shelf Promotions"):
 			out = run(name, filters={"company": self.company})
 			self.assertTrue(out["columns"], name)
 			self.assertIsInstance(out["result"], list, name)

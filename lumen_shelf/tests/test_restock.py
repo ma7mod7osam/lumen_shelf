@@ -210,7 +210,8 @@ class TestLevels(RestockCase):
 			lv = oracle.levels(p["base_speed"] * f * p["promo_factor"], p["base_sigma"] * f, p["lead_time"], Z95, p["cover"])
 			key = (p["item_code"], p["warehouse"])
 			self.assertAlmostEqual(p["rop"], lv.rop, 9, key)
-			self.assertAlmostEqual(p["target"], lv.target, 9, key)
+			# a shelf capacity (checked in test_capacity) caps the target
+			self.assertAlmostEqual(p["target"], min(lv.target, p["capacity"] or lv.target), 9, key)
 
 	def test_safety_grows_with_swing(self):
 		p = self.pair("A6", "O1")

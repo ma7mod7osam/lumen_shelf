@@ -1,6 +1,6 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.7.0 (promotions).
+*Applies to Lumen Shelf v0.8.0 (shelf capacity).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
@@ -47,6 +47,7 @@ fill in. On the first day it uses these defaults:
 | Keep ERPNext's reorder levels up to date (automatic mode) | Off |
 | Daily alert to Shelf Managers | On |
 | Learn from promotions | On |
+| Respect shelf capacity | On |
 
 The supplier comes from the item's **Item Defaults** for the company, or else
 from the item's most recent Purchase Order. The main warehouse is found on its
@@ -73,6 +74,7 @@ Per outlet, the items that will run out before a new delivery can arrive.
 | On order | Open Purchase Orders and open Material Requests (purchase and transfer) |
 | Reorder point | Below this, restock now |
 | Suggested qty | Enough for the days of cover after the lead time, less what is on order |
+| Shelf capacity | How much the warehouse can hold of the item (ERPNext Putaway Rule). Blank when there is no rule |
 | Source | By transfer, By purchase, Transfer and purchase, or Wait for main warehouse |
 | Transfer from | The warehouse(s) the transfer comes from |
 | Supplier, Buy in purchase unit | Who to buy from, rounded up to whole packs |
@@ -305,6 +307,15 @@ kept on the invoice line).
   of the day counts as a promotion day. A rule with no end date is a standing price: it is already in
   the sales history.
 
+**Shelf capacity.** When an item has an ERPNext **Putaway Rule** for a
+warehouse (Stock > Putaway Rule: how much of it the warehouse can hold), the
+suggestion never fills that warehouse above it: the order-up-to level is at
+most the capacity. A warehouse already filled to its capacity is not running
+low, even below its reorder point. When rounding a purchase up to whole packs
+would overflow the capacity, it buys one pack less (unless that leaves none,
+or less than the minimum order). Stock above the capacity counts as surplus
+that another outlet can take. A disabled rule, or no rule, changes nothing.
+
 **Shelf life.** An item with a Shelf Life In Days never gets more cover than
 its shelf life less the lead time (at least 1 day), so nothing is bought to
 expire on the shelf.
@@ -373,6 +384,7 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
 **Lumen Shelf Settings**. Every field is optional.
 
 - **Enabled** switches the whole app off for everyone.
+- **Respect shelf capacity** (on): uses ERPNext's Putaway Rules, see section 3.
 - **Suggest transfers between outlets**, **Show stock health**, **Adjust for
   seasons**, **Show rising and falling items**, **Show lost sales**, **Plan
   purchases within a budget**, **Show forecast accuracy**, **Forecast by demand
@@ -445,6 +457,13 @@ The contract, version 2 (`lumen_shelf.api`):
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.8.0 (2026-10-31)
+
+- Shelf capacity from ERPNext's own Putaway Rules: a suggestion never fills a
+  warehouse above it, a full warehouse is not running low, and packs round
+  down when a whole pack would overflow it.
+- Running low shows the capacity. Switch **Respect shelf capacity**.
 
 ### 0.7.0 (2026-10-31)
 

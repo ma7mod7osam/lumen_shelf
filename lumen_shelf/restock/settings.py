@@ -53,6 +53,7 @@ DEFAULTS = {
 	"material_requests": 1,
 	"submit_requests": 1,
 	"promotions": 1,
+	"shelf_capacity": 1,
 	"auto_reorder": 0,
 	"reorder_alerts": 1,
 }
@@ -90,6 +91,7 @@ CHECKS = (
 	"auto_reorder",
 	"reorder_alerts",
 	"promotions",
+	"shelf_capacity",
 )
 
 

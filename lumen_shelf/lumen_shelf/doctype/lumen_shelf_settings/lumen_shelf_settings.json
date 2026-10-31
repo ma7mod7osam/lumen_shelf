@@ -4,7 +4,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "enabled", "intro", "section_restock", "restock_source", "cover_days", "service_level", "column_break_1", "default_lead_time", "transfer_lead_time", "history_weeks", "section_transfers", "outlet_transfers", "min_history_days", "section_health", "stock_health", "slow_days", "overstock_days", "section_forecast", "seasonality", "season_calendar", "column_break_2", "trends", "trend_threshold", "promotions", "section_insights", "lost_sales", "budget_plan", "forecast_accuracy", "section_analysis", "demand_patterns", "new_item_forecast", "expiry", "column_break_3", "dead_stock_actions", "bought_together", "assortment_gaps", "section_requests", "material_requests", "column_break_4", "submit_requests", "section_auto", "auto_reorder", "reorder_alerts", "update_levels_now", "column_break_5", "last_reorder_run", "last_reorder_result", "section_warehouses", "detected", "warehouses"
+  "enabled", "intro", "section_restock", "restock_source", "cover_days", "service_level", "column_break_1", "default_lead_time", "transfer_lead_time", "history_weeks", "shelf_capacity", "section_transfers", "outlet_transfers", "min_history_days", "section_health", "stock_health", "slow_days", "overstock_days", "section_forecast", "seasonality", "season_calendar", "column_break_2", "trends", "trend_threshold", "promotions", "section_insights", "lost_sales", "budget_plan", "forecast_accuracy", "section_analysis", "demand_patterns", "new_item_forecast", "expiry", "column_break_3", "dead_stock_actions", "bought_together", "assortment_gaps", "section_requests", "material_requests", "column_break_4", "submit_requests", "section_auto", "auto_reorder", "reorder_alerts", "update_levels_now", "column_break_5", "last_reorder_run", "last_reorder_result", "section_warehouses", "detected", "warehouses"
  ],
  "fields": [
   {"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled", "default": "1", "description": "Switch Lumen Shelf on or off for everyone."},
@@ -17,6 +17,7 @@
   {"fieldname": "default_lead_time", "fieldtype": "Int", "label": "Supplier lead time (days)", "default": "7", "non_negative": 1, "description": "Used until a supplier has a Purchase Receipt against a Purchase Order. After that the lead time is learned from those receipts."},
   {"fieldname": "transfer_lead_time", "fieldtype": "Int", "label": "Transfer lead time (days)", "default": "2", "non_negative": 1, "description": "Days for a transfer from another warehouse to reach the shelf."},
   {"fieldname": "history_weeks", "fieldtype": "Int", "label": "Weeks of sales history", "default": "8", "non_negative": 1, "description": "Recent weeks weigh more. Days an item was out of stock are left out."},
+  {"fieldname": "shelf_capacity", "fieldtype": "Check", "label": "Respect shelf capacity", "default": "1", "description": "Uses ERPNext's Putaway Rules (how much of an item a warehouse can hold): a suggestion never fills a warehouse above it. Without a rule, nothing changes."},
   {"fieldname": "section_transfers", "fieldtype": "Section Break", "label": "Transfers between outlets"},
   {"fieldname": "outlet_transfers", "fieldtype": "Check", "label": "Suggest transfers between outlets", "default": "1", "description": "Surplus in one outlet covers a shortage in another before anything is bought, and stock that does not sell in one outlet moves to where it sells."},
   {"fieldname": "min_history_days", "fieldtype": "Int", "label": "Days in stock needed before judging an outlet", "default": "28", "non_negative": 1, "depends_on": "outlet_transfers", "description": "An outlet gives stock away, or counts as slow, only after it has had the item on the shelf for this many days."},
@@ -60,7 +61,7 @@
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-10-31 22:00:00.000000",
+ "modified": "2026-10-31 23:00:00.000000",
  "modified_by": "Administrator",
  "module": "Lumen Shelf",
  "name": "Lumen Shelf Settings",

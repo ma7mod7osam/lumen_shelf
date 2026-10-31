@@ -66,6 +66,7 @@ def columns(budget_on=True, with_budget=False):
 		{"fieldname": "on_order", "label": _("On order"), "fieldtype": "Float", "width": 85},
 		{"fieldname": "reorder_point", "label": _("Reorder point"), "fieldtype": "Float", "precision": 1, "width": 105},
 		{"fieldname": "suggested_qty", "label": _("Suggested qty"), "fieldtype": "Float", "width": 110},
+		{"fieldname": "capacity", "label": _("Shelf capacity"), "fieldtype": "Float", "width": 105},
 		{"fieldname": "stock_uom", "label": _("UOM"), "fieldtype": "Data", "width": 70},
 		{"fieldname": "source", "label": _("Source"), "fieldtype": "Data", "width": 130},
 		{"fieldname": "transfer_qty", "label": _("Transfer qty"), "fieldtype": "Float", "width": 95},

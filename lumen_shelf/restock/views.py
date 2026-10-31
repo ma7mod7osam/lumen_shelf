@@ -157,6 +157,8 @@ def running_low(result, allowed, warehouse=None, item_group=None, source=None, b
 				"reorder_point": _r(p["rop"], 2),
 				"target": _r(p["target"], 2),
 				"suggested_qty": _r(transfer_qty + wait_qty + buy_qty, 3),
+				"capacity": _q(p.get("capacity")),
+				"capped": p.get("capped") or 0,
 				"stock_uom": p["stock_uom"],
 				"source_key": src,
 				"source": _(SOURCE_LABELS[src]),

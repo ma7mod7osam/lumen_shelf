@@ -150,6 +150,7 @@ def _compute(company, as_of, items, s):
 	bins = data.bins(usable, items)
 	pos_res = data.pos_reserved(usable, items)
 	asked_out = data.requested_out(usable, items)
+	caps = data.capacities(usable, items) if s["shelf_capacity"] else {}
 	sold = data.sales(company, usable, start, end, items)
 	opening = data.ledger_opening(usable, start, items)
 	ledger = data.ledger_days(usable, start, end, items)
@@ -279,6 +280,8 @@ def _compute(company, as_of, items, s):
 			"base_speed": base,
 			"base_basis": base_basis,
 			"base_sigma": base_sigma,
+			"capacity": caps.get((item, wh)),
+			"capped": 0,
 			"promo_days": len(promo),
 			"lift": lifted[0] if lifted else None,
 			"promo_speed": lifted[1] if lifted else None,
@@ -570,10 +573,16 @@ def _levels(p, lead, z, cover, position=None, seasons=None):
 	p["safety"] = model.safety_stock(z, p.get("base_sigma", p["sigma"]) * f, lead)
 	p["rop"] = model.reorder_point(p["forecast"], lead, p["safety"])
 	p["target"] = model.order_up_to(p["rop"], p["forecast"], p["cover"])
+	# the warehouse holds no more than its capacity (ERPNext Putaway Rule)
+	if p.get("capacity") and p["target"] > p["capacity"] + model.EPS:
+		p["target"] = p["capacity"]
+		p["capped"] = 1
 	pos = p["position"] if position is None else position
 	p["position_after"] = pos
 	p["low"] = 1 if model.is_running_low(p["forecast"], pos, p["rop"]) else 0
 	p["need"] = model.round_need(p["target"] - pos, p["whole"]) if p["low"] else 0.0
+	if p["low"] and p["need"] <= model.EPS:
+		p["low"] = 0  # already filled to its capacity: nothing to do
 
 
 def _similar(pairs, main):
@@ -660,6 +669,14 @@ def _transfer(item, src, dst, qty, reason):
 
 def _buy(item, wh, qty, p):
 	stock_qty = model.round_to_pack(qty, p["pack"], p["min_order_qty"])
+	if p.get("capacity") and p["pack"]:
+		# rounding up to a whole pack would overflow the capacity: one pack less,
+		# unless that leaves none or less than the minimum order
+		room = p["capacity"] - p["position_after"] - (p["need"] - qty)
+		if stock_qty > room + model.EPS:
+			down = model.round_surplus(room, 1) // p["pack"] * p["pack"]
+			if down > model.EPS and down >= (p["min_order_qty"] or 0.0) - model.EPS:
+				stock_qty = round(down, 6)
 	return {
 		"kind": KIND_BUY,
 		"item_code": item,

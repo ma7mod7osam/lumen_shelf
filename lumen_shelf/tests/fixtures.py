@@ -19,7 +19,7 @@ import frappe
 from frappe.utils import add_days, getdate, nowdate
 
 DATASET_KEY = "lumen_shelf_test_dataset"
-DATASET_VERSION = 18
+DATASET_VERSION = 19
 
 WAREHOUSES = {
 	"O1": "RS Out1",
@@ -97,6 +97,28 @@ def ensure_item_group(name="RS Test Items", parent="All Item Groups", is_group=0
 			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": parent, "is_group": is_group}
 		).insert(ignore_permissions=True)
 	return name
+
+
+def putaway_rule(company, item, warehouse, capacity, disable=0):
+	"""ERPNext's Putaway Rule: how much of an item the warehouse can hold. The
+	stock-unit capacity is filled in too: ERPNext checks it against the stock
+	on hand before working it out itself."""
+	doc = frappe.get_doc(
+		{
+			"doctype": "Putaway Rule",
+			"item_code": item,
+			"warehouse": warehouse,
+			"company": company,
+			"capacity": capacity,
+			"uom": frappe.db.get_value("Item", item, "stock_uom"),
+			"conversion_factor": 1,
+			"stock_capacity": capacity,
+			"priority": 1,
+			"disable": disable,
+		}
+	)
+	doc.insert(ignore_permissions=True)
+	return doc.name
 
 
 def pricing_rule(company, title, apply_on, values, start, end, warehouse=None, disable=0):
@@ -563,6 +585,10 @@ def build():
 	for n in ("PR1", "PR2"):
 		it[n] = make_item(code(n), company)
 	it["PR3"] = make_item(code("PR3"), company, group=promo_child)
+	# 0.8.0 shelf capacity (ERPNext Putaway Rules, made at the end)
+	for n in ("CP1", "CP3", "CP4"):
+		it[n] = make_item(code(n), company)
+	it["CP2"] = make_item(code("CP2"), company, purchase_uom="Box", factor=6)
 	for n in ("I1", "LU1", "DS1", "DB1", "DP1", "AG1", "OLD1", "MS1"):
 		it[n] = make_item(code(n), company)
 	fresh, brand = "RS Fresh %s" % suffix, "RS Brand %s" % suffix
@@ -736,6 +762,12 @@ def build():
 			on_promo = k in PROMO_DAYS
 			on(sales, k, (it[n], wh["O1"], 6 if on_promo else 2, 10, None, 30 if on_promo else 0))
 
+	# --- shelf capacity: CP1, CP2, CP4 sell 1 a day and are left with 4.
+	# CP3 is left with 6, exactly its capacity
+	for n, got in (("CP1", 60), ("CP2", 60), ("CP3", 62), ("CP4", 60)):
+		on(rec, 70, (it[n], wh["O1"], got))
+		sell(n, "O1", every_day(56, 1), 1)
+
 	# --- assortment gap: AG1 sells only in Outlet 2
 	on(rec, 70, (it["AG1"], wh["O2"], 100))
 	sell("AG1", "O2", every_day(56, 1), 1)
@@ -794,6 +826,15 @@ def build():
 	sales_order(company, customer, [(it["SO1"], wh["O1"], 10)], today())
 	sales_invoice(company, customer, [(it["A1"], wh["O1"], 10, 10)], today(), time="09:00:00")
 
+	# shelf capacity, set after the stock moved (ERPNext refuses a receipt
+	# above a rule's capacity, as a shop adding rules later would find)
+	putaway = {
+		"CP1": putaway_rule(company, it["CP1"], wh["O1"], 15),
+		"CP2": putaway_rule(company, it["CP2"], wh["O1"], 17),
+		"CP3": putaway_rule(company, it["CP3"], wh["O1"], 6),
+		"CP4": putaway_rule(company, it["CP4"], wh["O1"], 15, disable=1),
+	}
+
 	# planned promotions, made after the invoices so none of them prices one
 	rules = {
 		"PR2": pricing_rule(company, "RS PR2 week " + suffix, "Item Code", [it["PR2"]], add_days(today(), 3), add_days(today(), 7)),
@@ -817,6 +858,7 @@ def build():
 		"suppliers": {"S1": s1, "S2": s2, "S3": s3},
 		"batches": {"A": batch_a, "B": batch_b},
 		"pricing_rules": rules,
+		"putaway_rules": putaway,
 		"promo_parent": promo_parent,
 		"pos_invoices": out["pos"],
 		"pos_profile": profile,

@@ -582,3 +582,22 @@ def group_parents(groups):
 		me = tree.get(g)
 		out[g] = {n for n, r in tree.items() if me and r.lft <= me.lft and r.rgt >= me.rgt} | {g}
 	return out
+
+
+def capacities(whs, items=None):
+	"""{(item, warehouse): capacity in stock units} from ERPNext's own Putaway
+	Rules (Stock > Putaway Rule: how much of an item a warehouse can hold).
+	Disabled rules are left out."""
+	rows = frappe.db.sql(
+		"""select item_code, warehouse, stock_capacity, capacity, conversion_factor
+		from `tabPutaway Rule` where ifnull(disable, 0) = 0 and warehouse in %(whs)s"""
+		+ _items_clause(items),
+		{"whs": _in(whs), "items": _in(items or [])},
+	)
+	out = {}
+	for item, wh, stock_cap, cap, factor in rows:
+		value = flt(stock_cap) or flt(cap) * (flt(factor) or 1.0)
+		if value > 0:
+			out[(item, wh)] = value
+	return out
+

@@ -30,7 +30,13 @@ FEATURES = {
 	"forecast_accuracy": "forecast_accuracy",
 	"bought_together": "bought_together",
 	"assortment_gaps": "assortment_gaps",
+	"material_requests": "material_requests",
 }
+
+# Who may turn suggestions into Material Requests: not Shelf User, who only
+# looks. ERPNext's own permission to create (and submit) a Material Request is
+# checked on top, by ERPNext itself when the request is saved.
+REQUEST_ROLES = ("System Manager", "Stock Manager", "Purchase Manager", MANAGER_ROLE)
 
 
 def viewer_roles():
@@ -66,6 +72,27 @@ def check_view(feature="running_low", user=None):
 		frappe.throw(_("This part of Lumen Shelf is switched off in Lumen Shelf Settings."), title=_("Switched off"))
 	if not has_view_role(user):
 		frappe.throw(_("You do not have a role that may see restock suggestions."), frappe.PermissionError)
+	return s
+
+
+def has_request_role(user=None):
+	user = user or frappe.session.user
+	if user == "Administrator":
+		return True
+	return bool(set(REQUEST_ROLES) & set(frappe.get_roles(user)))
+
+
+def check_requests(feature, user=None):
+	"""Throw unless this person may see `feature` and turn it into Material
+	Requests: the switch, a role that may act, and ERPNext's own permission."""
+	s = check_view(feature, user)
+	if not s.get("material_requests"):
+		frappe.throw(_("Creating material requests is switched off in Lumen Shelf Settings."), title=_("Switched off"))
+	if not has_request_role(user):
+		frappe.throw(_("You do not have a role that may create material requests from the suggestions."), frappe.PermissionError)
+	for ptype in ("create", "submit") if s.get("submit_requests") else ("create",):
+		if not frappe.has_permission("Material Request", ptype, user=user):
+			frappe.throw(_("You are not permitted to create material requests in ERPNext."), frappe.PermissionError)
 	return s
 
 

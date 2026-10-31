@@ -40,6 +40,34 @@ frappe.query_reports["Shelf Running Low"] = {
 			description: __("Ranks the purchases by urgency and value and marks those that fit."),
 		},
 	],
+	onload(report) {
+		// Phase 2: one button turns what the screen shows into ERPNext Material
+		// Requests. Shown only to people the server lets create them.
+		const scope = "running_low";
+		const call = (method, args) =>
+			frappe.call({ method: "lumen_shelf.restock.requests." + method, args, freeze: true });
+		frappe
+			.call({ method: "lumen_shelf.restock.requests.can_create", args: { scope } })
+			.then((r) => {
+				if (!r.message || !r.message.ok) return;
+				report.page.add_inner_button(__("Create material requests"), () => {
+					const filters = report.get_filter_values();
+					call("preview", { scope, filters }).then((p) => {
+						if (!p.message.count) return frappe.msgprint(p.message.message);
+						frappe.confirm(p.message.message, () => {
+							call("create", { scope, filters }).then((c) => {
+								frappe.msgprint({
+									title: __("Material requests"),
+									message: c.message.message,
+									indicator: c.message.count ? "blue" : "orange",
+								});
+								report.refresh();
+							});
+						});
+					});
+				});
+			});
+	},
 	formatter(value, row, column, data, default_formatter) {
 		value = default_formatter(value, row, column, data);
 		if (!data) return value;
@@ -53,7 +81,7 @@ frappe.query_reports["Shelf Running Low"] = {
 				data.season_factor > 1 ? "color: var(--blue-500, #1463FF)" : "color: var(--orange-500, #E79913)";
 			value = `<span style="${style}; font-weight: 600">${value}</span>`;
 		}
-				if (column.fieldname === "suggested_qty" && data.suggested_qty) {
+		if (column.fieldname === "suggested_qty" && data.suggested_qty) {
 			value = `<span style="font-weight: 600">${value}</span>`;
 		}
 		return value;

@@ -1,12 +1,14 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.3.0 (phase 1, with the smarter forecast and deeper analysis).
+*Applies to Lumen Shelf v0.4.0 (phase 2: material requests from the suggestions).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
 many days are left on the shelf, and tells you what to transfer between
 warehouses and what to buy, before anything runs out. It reads only what is
-already in ERPNext. **Phase 1 is read only: it creates no document.**
+already in ERPNext. It creates a document only when someone presses
+**Create material requests**: then it makes ERPNext Material Requests, and
+nothing else.
 
 It works on ERPNext v13, v14, v15 and v16, with or without LumenPOS. Sales are
 counted from POS Invoices and Sales Invoices.
@@ -39,6 +41,8 @@ fill in. On the first day it uses these defaults:
 | Suggest what to do with stock that does not sell | On |
 | Show items bought together | On |
 | Show assortment gaps | On |
+| Create material requests from the suggestions | On |
+| Submit the requests | On |
 
 The supplier comes from the item's **Item Defaults** for the company, or else
 from the item's most recent Purchase Order. The main warehouse is found on its
@@ -82,6 +86,9 @@ quantity x the item's last purchase rate, or its stock valuation rate if it has
 never been bought.
 Quantities that are zero are left blank.
 
+**Create material requests** (button at the top). It turns what the screen
+shows, with its filters, into ERPNext Material Requests. See section 2a.
+
 ### Transfer suggestions (Shelf Transfers)
 
 Every suggested move: item, from, to, quantity, and why.
@@ -90,6 +97,43 @@ Every suggested move: item, from, to, quantity, and why.
   before anything is bought.
 - **Sells faster there**: the item does not move in one outlet but sells in
   another, so the spare stock goes where it sells.
+
+The same **Create material requests** button makes one transfer request per
+sending warehouse for the moves shown. See section 2a.
+
+### 2a. Create material requests
+
+On **Running low** and **Transfer suggestions**, the button at the top shows
+what it will create and asks before it does:
+
+- **Purchases**: one Material Request (type Purchase) per supplier, a line per
+  item and warehouse, in the purchase unit (whole packs). Items with no known
+  supplier go on one request, "supplier to choose". In ERPNext, open the
+  request and use **Create > Purchase Order**.
+- **Transfers**: one Material Request (type Material Transfer) per sending
+  warehouse, a line per item and receiving warehouse. In ERPNext, open the
+  request and use **Create > Transfer Material**.
+- **Required by** on each line: today plus the lead time (purchases) or the
+  transfer lead time (transfers).
+- It asks for what the screen shows: with a warehouse, item group or source
+  filter, only those. With a **Budget** on Running low, only the purchases that
+  fit it. Transfers do not spend the budget.
+- **Nothing is asked twice.** A submitted request counts in ERPNext as on
+  order at the receiving warehouse, so the suggestion goes away. At the
+  sending warehouse, stock asked for by a submitted transfer request and not
+  yet moved is no longer counted as spare, so it is never promised twice.
+  Quantities already on a draft request are taken off.
+- The requests are saved with ERPNext's own checks. The quantities are worked
+  out again from fresh figures when you confirm. If one request fails, none is
+  kept.
+- **Submit the requests** (setting, on by default). Off: they are saved as
+  drafts for someone to check and submit. ERPNext counts a draft as nothing
+  until it is submitted.
+
+Who may press it: Shelf Manager, Stock Manager, Purchase Manager, System
+Manager, and only if ERPNext also lets them create (and submit) a Material
+Request. Shelf User does not see the button. A person limited to some
+warehouses gets only the lines whose every warehouse they may see.
 
 ### Stock health (Shelf Stock Health)
 
@@ -260,7 +304,10 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
   purchases within a budget**, **Show forecast accuracy**, **Forecast by demand
   pattern**, **Forecast new items from similar ones**, **Watch expiry dates**,
   **Suggest what to do with stock that does not sell**, **Show items bought
-  together** and **Show assortment gaps** switch those parts off.
+  together**, **Show assortment gaps** and **Create material requests from the
+  suggestions** switch those parts off.
+- **Submit the requests**: on, the button submits the requests. Off, it saves
+  them as drafts.
 - **Warehouse roles** (optional): name the main warehouse per company, or leave
   a warehouse out.
 
@@ -273,6 +320,9 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
 - **User Permissions** on Warehouse limit a person to their outlets: they see
   only those outlets' lists, and only the transfers that touch them. User
   Permissions on Company work the same way.
+- **Create material requests**: Shelf Manager, Stock Manager, Purchase
+  Manager, System Manager, with ERPNext's own permission to create (and
+  submit) a Material Request. Not Shelf User.
 - The checks are on the server, not only in the screen.
 
 ## 8. LumenPOS and other apps
@@ -296,15 +346,27 @@ The contract, version 1 (`lumen_shelf.api`):
 
 ## 9. Phases
 
-1. **Now**: forecast and lists, read only.
-2. **Next**: one button creates ERPNext Material Requests from the suggestions,
+1. **Done**: forecast and lists, read only.
+2. **Now**: one button creates ERPNext Material Requests from the suggestions,
    grouped by supplier or source warehouse. ERPNext's own button turns them
    into Purchase Orders.
-3. **Later**: an automatic mode with alerts that keeps ERPNext's own Item
+3. **Next**: an automatic mode with alerts that keeps ERPNext's own Item
    Reorder levels up to date and lets ERPNext's own automatic Material Requests
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.4.0 (2026-10-31)
+
+- Phase 2: a **Create material requests** button on Running low and Transfer
+  suggestions. Purchases one request per supplier, transfers one per sending
+  warehouse, in the purchase unit, with the required-by date from the lead
+  time. It follows the screen's filters and the budget.
+- Stock asked for by a submitted transfer request is no longer counted as
+  spare at the sending warehouse. Draft requests are taken off what the button
+  asks for.
+- Settings: **Create material requests from the suggestions** and **Submit the
+  requests**.
 
 ### 0.3.0 (2026-10-31)
 

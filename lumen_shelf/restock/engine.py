@@ -73,7 +73,21 @@ def _cache_key(company, as_of, items, s):
 		sort_keys=True,
 		default=str,
 	)
-	return "lumen_shelf:v1:" + hashlib.md5(blob.encode()).hexdigest()
+	return "lumen_shelf:v1:%s:" % generation(company) + hashlib.md5(blob.encode()).hexdigest()
+
+
+def _gen_key(company):
+	return "lumen_shelf:gen:" + hashlib.md5(str(company).encode()).hexdigest()
+
+
+def generation(company):
+	return compat.cache_get(_gen_key(company)) or 0
+
+
+def forget(company):
+	"""Drop the cached results for a company: after Lumen Shelf creates
+	requests, the next look must see them on order."""
+	compat.cache_set(_gen_key(company), int(generation(company)) + 1, 7 * 86400)
 
 
 def compute(company, as_of=None, items=None, use_cache=True):
@@ -132,6 +146,7 @@ def _compute(company, as_of, items, s):
 
 	bins = data.bins(usable, items)
 	pos_res = data.pos_reserved(usable, items)
+	asked_out = data.requested_out(usable, items)
 	sold = data.sales(company, usable, start, end, items)
 	opening = data.ledger_opening(usable, start, items)
 	ledger = data.ledger_days(usable, start, end, items)
@@ -171,6 +186,7 @@ def _compute(company, as_of, items, s):
 		on_shelf = flt(b.get("actual_qty")) - pos_res.get((item, wh), 0.0)
 		on_order = flt(b.get("ordered_qty")) + flt(b.get("indented_qty"))
 		so_reserved = flt(b.get("reserved_qty"))
+		req_out = asked_out.get((item, wh), 0.0)
 		by_day = sold.get((item, wh), {})
 		sold_by_day = {d: v[0] for d, v in by_day.items()}
 		demand = dict(sold_by_day)
@@ -212,7 +228,8 @@ def _compute(company, as_of, items, s):
 			"on_shelf": on_shelf,
 			"on_order": on_order,
 			"so_reserved": so_reserved,
-			"position": on_shelf + on_order - so_reserved,
+			"requested_out": req_out,
+			"position": on_shelf + on_order - so_reserved - req_out,
 			"sold_qty": sold_qty,
 			"sales_value": sales_value,
 			"in_stock_days": n,
@@ -279,7 +296,7 @@ def _compute(company, as_of, items, s):
 			own_speed, own_sigma = own_speed * f, own_sigma * f
 			own_rop = model.reorder_point(own_speed, p["lead_buy"], model.safety_stock(z, own_sigma, p["lead_buy"]))
 			own_target = model.order_up_to(own_rop, own_speed, model.shelf_life_cover(cover, p["shelf_life"], p["lead_buy"]))
-			p["spare"] = model.round_surplus(p["on_shelf"] - p["so_reserved"] - own_target, p["whole"])
+			p["spare"] = model.round_surplus(p["on_shelf"] - p["so_reserved"] - p["requested_out"] - own_target, p["whole"])
 
 	# 3. every other outlet's surplus beyond its own cover, if it has the history
 	for (item, wh), p in pairs.items():
@@ -287,7 +304,7 @@ def _compute(company, as_of, items, s):
 			continue
 		p["spare"] = 0.0
 		if s["outlet_transfers"] and p["eligible"] and not p["low"]:
-			p["spare"] = model.round_surplus(p["on_shelf"] - p["so_reserved"] - p["target"], p["whole"])
+			p["spare"] = model.round_surplus(p["on_shelf"] - p["so_reserved"] - p["requested_out"] - p["target"], p["whole"])
 		p["incoming"] = 0.0
 
 	by_item = {}

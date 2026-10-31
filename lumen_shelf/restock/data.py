@@ -9,6 +9,9 @@ Every number comes from where ERPNext itself keeps it:
   on order          Bin.ordered_qty (open Purchase Orders) + Bin.indented_qty
                     (open Material Requests, purchase and transfer)
   reserved          Bin.reserved_qty (Sales Orders)
+  requested out     submitted Material Requests (Material Transfer) not yet
+                    transferred, by the warehouse they come from: ERPNext
+                    counts them on order at the receiving end only
   sales             POS Invoice items, and Sales Invoice items whose invoice is
                     not a POS consolidation (is_consolidated = 0), or every POS
                     sale would count twice; bundle parts through Packed Item
@@ -80,6 +83,37 @@ def bins(whs, items=None):
 		as_dict=True,
 	)
 	return {(r.item_code, r.warehouse): r for r in rows}
+
+
+def requested_out(whs, items=None):
+	"""Stock already asked of a warehouse by a submitted transfer request and
+	not yet moved, per item and sending warehouse. The same conditions as
+	ERPNext's get_indented_qty, read from the sending side."""
+	rows = frappe.db.sql(
+		"""select i.item_code, i.from_warehouse, sum(i.stock_qty - i.ordered_qty)
+		from `tabMaterial Request Item` i join `tabMaterial Request` r on r.name = i.parent
+		where r.docstatus = 1 and r.status != 'Stopped' and r.material_request_type = 'Material Transfer'
+			and i.stock_qty > i.ordered_qty and i.from_warehouse in %(whs)s"""
+		+ _items_clause(items, "i.item_code")
+		+ " group by i.item_code, i.from_warehouse",
+		{"whs": _in(whs), "items": _in(items or [])},
+	)
+	return {(i, w): flt(q) for i, w, q in rows}
+
+
+def draft_requests(company, request_type):
+	"""Quantities on draft Material Requests of one type, in stock units, per
+	item, warehouse and sending warehouse. ERPNext counts a request only once
+	it is submitted, so these are what someone has already asked for and not
+	yet sent off."""
+	rows = frappe.db.sql(
+		"""select i.item_code, i.warehouse, ifnull(i.from_warehouse, ''), sum(i.stock_qty)
+		from `tabMaterial Request Item` i join `tabMaterial Request` r on r.name = i.parent
+		where r.docstatus = 0 and r.company = %s and r.material_request_type = %s
+		group by i.item_code, i.warehouse, i.from_warehouse""",
+		(company, request_type),
+	)
+	return {(i, w, f or None): flt(q) for i, w, f, q in rows}
 
 
 def pos_reserved(whs, items=None):

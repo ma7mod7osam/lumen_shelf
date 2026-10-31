@@ -30,6 +30,10 @@ Contract 1 (Lumen Shelf 0.1.0):
         (expected daily sales, after the season effect; days_left and the
         suggestion use it), season_factor (blank when no season applies),
         season_basis ("item" or "group"), unit_cost, buy_cost
+        From 0.4.0, on_shelf is unchanged but a warehouse's spare (what it can
+        send) leaves out stock already asked of it by a submitted transfer
+        Material Request. The screens' Create material requests button is not
+        part of the contract.
       transfers row: item_code, item_name, from_warehouse, to_warehouse, qty,
         stock_uom, reason_key ("running_low", "sells_faster"), reason
         (translated), from_on_shelf, from_daily_sales, to_on_shelf,

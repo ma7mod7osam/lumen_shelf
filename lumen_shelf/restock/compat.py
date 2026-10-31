@@ -12,8 +12,11 @@ def cache():
 
 
 def cache_get(key):
+	"""expires=True: our keys are set with an expiry. Without it Frappe keeps
+	a miss in memory for the rest of the request, so a value set later in the
+	same request (a new cache generation) is never seen there."""
 	try:
-		return cache().get_value(key)
+		return cache().get_value(key, expires=True)
 	except Exception:
 		return None
 

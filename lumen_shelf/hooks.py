@@ -29,7 +29,9 @@ after_migrate = "lumen_shelf.install.after_migrate"
 # just the tested app's before_tests hooks).
 before_tests = "lumen_shelf.tests.bootstrap.before_tests"
 
-# Phase 1 is read only: no doc_events, no scheduler, no overrides.
+# No doc_events, no scheduler, no overrides. Phase 2 writes only when a
+# person presses Create material requests (lumen_shelf.restock.requests), and
+# then only ERPNext Material Requests, saved with ERPNext's own checks.
 #
 # Other apps may name extra roles that can see the restock lists, for the
 # lists only (not the settings). LumenPOS uses this to let its own manager role

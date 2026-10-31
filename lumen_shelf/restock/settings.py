@@ -50,6 +50,8 @@ DEFAULTS = {
 	"dead_stock_actions": 1,
 	"bought_together": 1,
 	"assortment_gaps": 1,
+	"material_requests": 1,
+	"submit_requests": 1,
 }
 
 # Allowed ranges, checked when the settings are saved and again when read, so a
@@ -80,6 +82,8 @@ CHECKS = (
 	"dead_stock_actions",
 	"bought_together",
 	"assortment_gaps",
+	"material_requests",
+	"submit_requests",
 )
 
 

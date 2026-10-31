@@ -539,19 +539,36 @@ def promotions(company, start, end):
 			):
 				p["warehouses"].add(wh)
 			for row in frappe.db.sql(
-				"""select applies_to, item_code, item_group, brand, ifnull(exclude, 0) as exclude, ifnull(role, 'Buy') as role
+				"""select applies_to, item_code, item_group, brand, tag, ifnull(exclude, 0) as exclude, ifnull(role, 'Buy') as role
 				from `tabPOS Promotion Item` where parent = %s and parenttype = 'POS Promotion'""",
 				r.name,
 				as_dict=True,
 			):
 				if row.role == "Get" and not row.exclude:
 					continue  # the free or discounted "get" item of a Buy X Get Y
+				if row.applies_to == "Tag":
+					# a tag stands for the items carrying it (Frappe's Tag Link)
+					tagged = tagged_items([row.tag]).get(row.tag, set()) if row.tag else set()
+					p["exclude_items" if row.exclude else "items"].update(tagged)
+					continue
 				key, value = {"Item": ("items", row.item_code), "Item Group": ("groups", row.item_group), "Brand": ("brands", row.brand)}.get(
 					row.applies_to, (None, None)
 				)
 				if key and value:
 					p[("exclude_" + key) if row.exclude else key].add(value)
 			out.append(p)
+	return out
+
+
+def tagged_items(tags):
+	"""{tag: set of items carrying it}, from Frappe's Tag Link."""
+	out = {t: set() for t in tags}
+	if not tags:
+		return out
+	for tag, item in frappe.db.sql(
+		"select tag, document_name from `tabTag Link` where document_type = 'Item' and tag in %s", (tuple(tags),)
+	):
+		out.setdefault(tag, set()).add(item)
 	return out
 
 

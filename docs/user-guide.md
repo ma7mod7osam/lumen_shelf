@@ -300,8 +300,9 @@ kept on the invoice line).
   (on an item, an item group and the groups under it, or a brand, for the
   company, and for one warehouse when the rule names it), and, when LumenPOS
   is installed, its active **promotions** with an end date and no coupon
-  (their items, groups, brands, exclusions, POS profiles' warehouses and
-  weekdays). A rule with no end date is a standing price: it is already in
+  (their items, groups and the groups under them, brands, tags, exclusions,
+  POS profiles' warehouses and weekdays). A promotion limited to some hours
+  of the day counts as a promotion day. A rule with no end date is a standing price: it is already in
   the sales history.
 
 **Shelf life.** An item with a Shelf Life In Days never gets more cover than

@@ -117,3 +117,20 @@ class TestPromotions(RestockCase):
 		self.assertEqual((p1["base_basis"], p1["promo_days"]), ("history", 0))
 		self.assertEqual(p1["base_speed"], p1["speed"])
 		self.assertEqual((p2["promo_factor"], p2["promo_next"]), (1.0, None))
+
+	def test_tagged_items(self):
+		# a LumenPOS promotion row on a tag stands for the items carrying it
+		from frappe.desk.doctype.tag.tag import add_tag
+
+		from lumen_shelf.restock import data
+
+		tag = "RS promo tag " + self.ds.suffix
+		frappe.db.savepoint("rs_tag")
+		try:
+			add_tag(tag, "Item", self.it["PR1"])
+			add_tag(tag, "Item", self.it["PR2"])
+			got = data.tagged_items([tag, "RS no such tag"])
+			self.assertEqual(got[tag], {self.it["PR1"], self.it["PR2"]})
+			self.assertEqual(got["RS no such tag"], set())
+		finally:
+			frappe.db.rollback(save_point="rs_tag")

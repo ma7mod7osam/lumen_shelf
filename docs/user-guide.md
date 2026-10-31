@@ -1,6 +1,6 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.5.0 (phase 3: automatic mode).
+*Applies to Lumen Shelf v0.6.0 (phase 3, and material requests from the till).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
@@ -378,13 +378,27 @@ hooks.py:
 lumen_shelf_viewer_roles = ["LumenPOS Manager"]
 ```
 
-The contract, version 1 (`lumen_shelf.api`):
+The till can also show a **Create material requests** button (contract 2).
+A role named by another app in its hooks.py may press it, with ERPNext's own
+Material Request permission on top:
 
-- `state()`: app, version, contract, enabled, can_view. Never fails.
+```python
+lumen_shelf_request_roles = ["LumenPOS Manager"]
+```
+
+The contract, version 2 (`lumen_shelf.api`):
+
+- `state()`: app, version, contract, enabled, can_view, can_request,
+  submit_requests. Never fails.
 - `running_low(company, warehouse)` and `transfers(company, warehouse)`:
   `{status: "ok", contract, company, as_of, window, main_warehouse, rows}`, or
   `{status: "disabled" | "forbidden" | "error", message}`. The row fields are
   listed in `lumen_shelf/api.py`.
+- `preview_requests(company, warehouse, scope)`: the Material Requests the
+  button would make now, for one outlet (`scope` "running_low", its
+  shortages) or its moves (`scope` "transfers").
+- `create_requests(company, warehouse, scope)`: makes them, all or nothing,
+  with the same rules as the desk button (section 2a).
 
 ## 9. Phases
 
@@ -397,6 +411,14 @@ The contract, version 1 (`lumen_shelf.api`):
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.6.0 (2026-10-31)
+
+- API contract 2 for the till: `preview_requests` and `create_requests` make
+  the material requests for one outlet, all or nothing. `state()` tells the
+  till whether to show the button (`can_request`).
+- Hook `lumen_shelf_request_roles`: another app names roles that may create
+  requests (LumenPOS: its manager role).
 
 ### 0.5.0 (2026-10-31)
 

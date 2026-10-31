@@ -44,3 +44,8 @@ before_tests = "lumen_shelf.tests.bootstrap.before_tests"
 # in, in its own hooks.py:
 #     lumen_shelf_viewer_roles = ["LumenPOS Manager"]
 # Warehouse user permissions still decide which outlets each person sees.
+#
+# Likewise for the roles that may create material requests from the
+# suggestions (the till's button, API contract 2), with ERPNext's own
+# Material Request permission on top:
+#     lumen_shelf_request_roles = ["LumenPOS Manager"]

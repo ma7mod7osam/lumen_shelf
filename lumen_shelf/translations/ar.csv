@@ -231,6 +231,7 @@
 "You do not have a role that may change the reorder levels.","ليس لديك صلاحية تسمح بتغيير حدود إعادة الطلب."
 "You do not have a role that may create material requests from the suggestions.","ليس لديك صلاحية تسمح بإنشاء طلبات المواد من الاقتراحات."
 "You do not have a role that may see restock suggestions.","ليس لديك صلاحية تسمح بالاطلاع على اقتراحات إعادة التزود."
+"You may not create material requests here.","غير مسموح لك بإنشاء طلبات المواد هنا."
 "You may not see restock suggestions here.","غير مسموح لك بالاطلاع على اقتراحات إعادة التزود هنا."
 "found from the transfers it sends","مستدل عليه من التحويلات التي يرسلها"
 "named below","محدد أدناه"

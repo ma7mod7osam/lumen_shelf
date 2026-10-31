@@ -8,6 +8,7 @@ as it was for the other test modules."""
 
 import json
 import math
+from unittest import mock
 
 import frappe
 from frappe.utils import add_days, flt, getdate, nowdate
@@ -339,3 +340,105 @@ class TestRequests(RestockCase):
 			self.assertTrue({l["from_warehouse"], l["to_warehouse"]} <= mine_whs, l)
 		# the screen shows a move from or to a warehouse it may not see, the button leaves it out
 		self.assertLess(len(mine), len(seen))
+
+	# ---- contract 2: the till's button (lumen_shelf.api)
+
+	def test_api_state(self):
+		from lumen_shelf import api
+
+		got = api.state()
+		self.assertEqual((got["contract"], got["can_request"], got["submit_requests"]), (2, 1, 1))
+		viewer = make_user("rs-viewer-%s@example.com" % self.ds.suffix, ["Stock User", "Shelf User"])
+		frappe.set_user(viewer)
+		got = api.state()
+		self.assertEqual((got["can_view"], got["can_request"]), (1, 0))
+
+	def test_api_preview_and_create_for_one_outlet(self):
+		from lumen_shelf import api
+
+		o1 = self.wh["O1"]
+		first = api.preview_requests(self.company, o1)
+		self.assertEqual(first["status"], "ok")
+		self.assertTrue(first["requests"])
+		lines = [l for r in first["requests"] for l in r["lines"]]
+		self.assertEqual({l["warehouse"] for l in lines}, {o1})
+		expected = {(l["item_code"], l["to_warehouse"], l["qty"]) for l in self.lines_of(self.result, warehouse=o1)}
+		self.assertEqual({(l["item_code"], l["warehouse"], l["stock_qty"]) for l in lines}, expected)
+		for r in first["requests"]:
+			self.assertEqual(r["type_label"], "Purchase request" if r["type"] == requests.TYPE_PURCHASE else "Transfer request")
+		made = api.create_requests(self.company, o1)
+		self.assertEqual(made["status"], "ok")
+		self.assertEqual(len(made["created"]), len(first["requests"]))
+		for m in made["created"]:
+			self.assertEqual(frappe.db.get_value("Material Request", m["name"], "docstatus"), 1)
+		self.assertEqual(api.preview_requests(self.company, o1)["requests"], [])
+
+	def test_api_transfers_from_or_to_the_outlet(self):
+		from lumen_shelf import api
+
+		moves = [l for l in self.result["lines"] if l["kind"] == engine.KIND_TRANSFER]
+		# an outlet that some moves touch and some do not, so the cut shows
+		outlet = None
+		for wh in sorted(self.wh.values()):
+			touching = [l for l in moves if wh in (l["from_warehouse"], l["to_warehouse"])]
+			if 0 < len(touching) < len(moves):
+				outlet = wh
+				break
+		self.assertTrue(outlet)
+		got = api.preview_requests(self.company, outlet, scope="transfers")
+		lines = [l for r in got["requests"] for l in r["lines"]]
+		self.assertTrue(lines)
+		for l in lines:
+			self.assertIn(outlet, (l["warehouse"], l["from_warehouse"]))
+		self.assertEqual(len(lines), len(touching))
+
+	def test_api_refusals(self):
+		from lumen_shelf import api
+
+		self.assertEqual(api.preview_requests(self.company, scope="nope")["status"], "error")
+		viewer = make_user("rs-viewer-%s@example.com" % self.ds.suffix, ["Stock User", "Shelf User"])
+		frappe.set_user(viewer)
+		self.assertEqual(api.preview_requests(self.company)["status"], "forbidden")
+		self.assertEqual(api.create_requests(self.company)["status"], "forbidden")
+		# a manager limited to one outlet asks for another one
+		limited = make_user("rs-o2-only-%s@example.com" % self.ds.suffix, ["Stock User", "Stock Manager"])
+		limit(limited, "Warehouse", self.wh["O2"])
+		frappe.set_user(limited)
+		self.assertEqual(api.preview_requests(self.company, self.wh["O2"])["status"], "ok")
+		self.assertEqual(api.preview_requests(self.company, self.wh["O1"])["status"], "forbidden")
+		frappe.set_user("Administrator")
+		set_settings(self.company, self.wh["M"], material_requests=0)
+		self.assertEqual(api.preview_requests(self.company)["status"], "disabled")
+		set_settings(self.company, self.wh["M"], enabled=0)
+		self.assertEqual(api.create_requests(self.company)["status"], "disabled")
+
+	def test_api_create_is_all_or_nothing(self):
+		from lumen_shelf import api
+
+		real = requests.make
+		before = frappe.db.count("Material Request", {"company": self.company})
+
+		def first_then_fail(groups, company, submit, today=None):
+			real(groups[:1], company, submit)
+			frappe.throw("RS test failure")
+
+		with mock.patch.object(requests, "make", side_effect=first_then_fail):
+			got = api.create_requests(self.company)
+		self.assertEqual(got["status"], "error")
+		self.assertIn("RS test failure", got["message"])
+		self.assertEqual(frappe.db.count("Material Request", {"company": self.company}), before)
+
+	def test_request_roles_from_other_apps(self):
+		user = make_user("rs-till-%s@example.com" % self.ds.suffix, ["Stock User", "Shelf User", "RS Till Manager"])
+		frappe.set_user(user)
+		self.assertFalse(access.can_request())
+		real = frappe.get_hooks
+
+		def fake(name=None, *args, **kwargs):
+			if name == "lumen_shelf_request_roles":
+				return ["RS Till Manager", "Guest"]
+			return real(name, *args, **kwargs)
+
+		with mock.patch.object(access.frappe, "get_hooks", side_effect=fake):
+			self.assertTrue(access.can_request())
+			self.assertNotIn("Guest", access.request_roles())

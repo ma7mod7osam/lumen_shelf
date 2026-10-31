@@ -75,11 +75,32 @@ def check_view(feature="running_low", user=None):
 	return s
 
 
+def request_roles():
+	"""REQUEST_ROLES plus roles other apps name in the hook
+	`lumen_shelf_request_roles` (LumenPOS: its manager role, for the till's
+	button). ERPNext's own Material Request permission still applies."""
+	roles = set(REQUEST_ROLES)
+	for r in frappe.get_hooks("lumen_shelf_request_roles") or []:
+		if isinstance(r, str) and r.strip() and r.strip() not in ("Guest", "All"):
+			roles.add(r.strip())
+	return roles
+
+
 def has_request_role(user=None):
 	user = user or frappe.session.user
 	if user == "Administrator":
 		return True
-	return bool(set(REQUEST_ROLES) & set(frappe.get_roles(user)))
+	return bool(request_roles() & set(frappe.get_roles(user)))
+
+
+def can_request(user=None):
+	"""For callers deciding whether to show a create-requests button: never raises."""
+	try:
+		check_requests("running_low", user)
+		return True
+	except Exception:
+		frappe.clear_messages()
+		return False
 
 
 def check_requests(feature, user=None):

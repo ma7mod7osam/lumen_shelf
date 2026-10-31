@@ -155,12 +155,12 @@ class TestAccess(unittest.TestCase):
 			run("Shelf Running Low", filters={"company": self.company})
 
 	def test_api_contract(self):
-		self.assertEqual(api.CONTRACT_VERSION, 1)
+		self.assertEqual(api.CONTRACT_VERSION, 2)
 		s = api.state()
-		self.assertEqual(set(s), {"app", "version", "contract", "enabled", "can_view"})
+		self.assertEqual(set(s), {"app", "version", "contract", "enabled", "can_view", "can_request", "submit_requests"})
 		out = api.running_low(self.company)
 		self.assertEqual(out["status"], "ok")
-		self.assertEqual(out["contract"], 1)
+		self.assertEqual(out["contract"], 2)
 		row_keys = {
 			"item_code", "item_name", "warehouse", "on_shelf", "daily_sales", "days_left", "on_order",
 			"reorder_point", "suggested_qty", "stock_uom", "source_key", "source", "transfer_qty",

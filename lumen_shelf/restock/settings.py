@@ -56,6 +56,7 @@ DEFAULTS = {
 	"shelf_capacity": 1,
 	"auto_reorder": 0,
 	"reorder_alerts": 1,
+	"trend_products": 0,
 }
 
 # Allowed ranges, checked when the settings are saved and again when read, so a
@@ -92,6 +93,7 @@ CHECKS = (
 	"reorder_alerts",
 	"promotions",
 	"shelf_capacity",
+	"trend_products",
 )
 
 

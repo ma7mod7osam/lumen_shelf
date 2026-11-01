@@ -29,7 +29,12 @@ before_uninstall = "lumen_shelf.install.before_uninstall"
 # Automatic mode only (off by default): refresh ERPNext's reorder levels at
 # 00:15, before ERPNext's own reorder job at 00:45 raises the requests. With
 # automatic mode off it only removes levels Lumen Shelf set earlier, if any.
-scheduler_events = {"cron": {"15 0 * * *": ["lumen_shelf.restock.reorder.nightly"]}}
+# Trending products (off until Lumen gives the shop a key): once a week, ask
+# Lumen's trends service in a background job.
+scheduler_events = {
+	"cron": {"15 0 * * *": ["lumen_shelf.restock.reorder.nightly"]},
+	"weekly": ["lumen_shelf.restock.trend_products.weekly"],
+}
 
 # Tests only: complete ERPNext's setup on a bare test site (Frappe v16 runs
 # just the tested app's before_tests hooks).

@@ -50,3 +50,35 @@ frappe.ui.form.on("Lumen Shelf Settings", {
 			});
 	},
 });
+
+// Trending products: ask Lumen's trends service now, without waiting for the week.
+frappe.ui.form.on("Lumen Shelf Settings", {
+	refresh_trends_now(frm) {
+		if (frm.is_dirty()) {
+			frappe.msgprint(__("Save the settings first."));
+			return;
+		}
+		frappe
+			.call({ method: "lumen_shelf.restock.trend_products.refresh_now", freeze: true })
+			.then((r) => frappe.msgprint({ title: __("Trending products"), message: frappe.utils.escape_html(r.message || ""), indicator: "blue" }));
+	},
+});
+
+// Credit on Lumen's trends service: ask what is left (free), or go and top up.
+frappe.ui.form.on("Lumen Shelf Settings", {
+	check_credit(frm) {
+		if (frm.is_dirty()) {
+			frappe.msgprint(__("Save the settings first."));
+			return;
+		}
+		frappe.call({ method: "lumen_shelf.restock.trend_products.check_credit", freeze: true }).then(() => frm.reload_doc());
+	},
+	top_up_credit(frm) {
+		const url = frm.doc.trends_topup_url;
+		if (url && /^https?:\/\//.test(url)) {
+			window.open(url, "_blank", "noopener");
+		} else {
+			frappe.msgprint(__("Ask Lumen to top up your credit on the trends service."));
+		}
+	},
+});

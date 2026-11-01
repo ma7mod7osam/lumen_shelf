@@ -41,6 +41,15 @@ class LumenShelfSettings(Document):
 					frappe.throw(_("Row {0}: company {1} already has a main warehouse.").format(row.idx, row.company))
 				mains[row.company] = row.warehouse
 
+		if cint(self.trend_products) and not (
+			(self.trends_url or "").strip() and (self.trends_api_key or "").strip() and self.trends_api_secret
+		):
+			frappe.msgprint(
+				_("Fill in the trends service URL, API Key and API Secret in Lumen Shelf Settings."),
+				indicator="orange",
+				alert=True,
+			)
+
 	def on_update(self):
 		"""Automatic mode on: switch on ERPNext's own automatic material requests,
 		which act on the levels. Off (or the app off): remove the levels Lumen

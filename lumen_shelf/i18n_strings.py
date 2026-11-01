@@ -57,6 +57,8 @@ EXTRA = [
 	"Bought together",
 	"Assortment gaps",
 	"Shelf Promotions",
+	"Shelf Trending Products",
+	"Shelf Trend Suggestion",
 	"Promotions",
 	"Sales history, promotions left out",
 	"ERPNext pricing rule",

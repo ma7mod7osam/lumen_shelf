@@ -1,0 +1,44 @@
+{
+ "actions": [],
+ "creation": "2026-11-01 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "product", "product_ar", "item_group", "status", "column_break_1", "company", "region", "found_on", "section_why", "search_term", "growth", "reason", "reason_ar"
+ ],
+ "fields": [
+  {"fieldname": "product", "fieldtype": "Data", "label": "Product", "read_only": 1, "in_list_view": 1, "bold": 1},
+  {"fieldname": "product_ar", "fieldtype": "Data", "label": "Product (Arabic)", "read_only": 1},
+  {"fieldname": "item_group", "fieldtype": "Link", "label": "Item Group", "options": "Item Group", "read_only": 1, "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "New\nDismissed", "default": "New", "in_list_view": 1, "in_standard_filter": 1, "description": "Dismissed: not suggested again."},
+  {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+  {"fieldname": "company", "fieldtype": "Link", "label": "Company", "options": "Company", "read_only": 1, "in_standard_filter": 1},
+  {"fieldname": "region", "fieldtype": "Select", "label": "Where", "options": "In the country\nWorldwide", "read_only": 1, "in_list_view": 1},
+  {"fieldname": "found_on", "fieldtype": "Date", "label": "Found on", "read_only": 1},
+  {"fieldname": "section_why", "fieldtype": "Section Break", "label": "Why"},
+  {"fieldname": "search_term", "fieldtype": "Data", "label": "Google search", "read_only": 1},
+  {"fieldname": "growth", "fieldtype": "Int", "label": "Search growth (%)", "read_only": 1},
+  {"fieldname": "reason", "fieldtype": "Small Text", "label": "Reason", "read_only": 1},
+  {"fieldname": "reason_ar", "fieldtype": "Small Text", "label": "Reason (Arabic)", "read_only": 1}
+ ],
+ "in_create": 1,
+ "links": [],
+ "modified": "2026-11-01 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Lumen Shelf",
+ "name": "Shelf Trend Suggestion",
+ "autoname": "hash",
+ "owner": "Administrator",
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "delete": 1, "print": 1, "export": 1, "report": 1},
+  {"role": "Shelf Manager", "read": 1, "write": 1, "delete": 1, "print": 1, "export": 1, "report": 1},
+  {"role": "Shelf User", "read": 1, "print": 1, "export": 1, "report": 1},
+  {"role": "Stock Manager", "read": 1, "print": 1, "export": 1, "report": 1},
+  {"role": "Purchase Manager", "read": 1, "print": 1, "export": 1, "report": 1}
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "product",
+ "track_changes": 1
+}

@@ -1,6 +1,6 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.8.0 (shelf capacity).
+*Applies to Lumen Shelf v0.9.0 (trending products).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
@@ -48,6 +48,7 @@ fill in. On the first day it uses these defaults:
 | Daily alert to Shelf Managers | On |
 | Learn from promotions | On |
 | Respect shelf capacity | On |
+| Suggest trending products | Off (needs a key from Lumen) |
 
 The supplier comes from the item's **Item Defaults** for the company, or else
 from the item's most recent Purchase Order. The main warehouse is found on its
@@ -55,7 +56,7 @@ own (section 5). The settings page shows what was found.
 
 ## 2. The screens
 
-All seven are ERPNext reports, so they sort, filter, export to Excel and print
+All eight are ERPNext reports, so they sort, filter, export to Excel and print
 like any other report, in English or Arabic, light or dark.
 
 ### Running low (Shelf Running Low)
@@ -231,6 +232,38 @@ Per outlet and item: **Promotion days** (days it sold mostly at a discount),
 (ERPNext pricing rule or LumenPOS promotion), when it starts and ends, its
 days ahead, its **Promotion effect** and the **Extra qty planned** for it.
 
+### Trending products (Shelf Trending Products)
+
+Products rising in Google searches, in the company's country and worldwide,
+that the shop does not sell yet. Per suggestion: the **Item Group** it fits,
+the **Product**, **Why** (one sentence), **Where** (in your country or
+worldwide), the **Google search** behind it and its **Search growth (%)**
+over the last 90 days, and the day it was **Found on**. A Shelf Manager can
+open a product and set its status to **Dismissed**: it is not suggested again.
+
+How it works. Once a week Lumen Shelf asks Lumen's trends service. It sends
+the company's country, its best selling item groups (up to 12) and the names
+of the items in them (up to 40 each). Never a quantity, a price, a customer or
+the shop's name. The service reads the related Google searches through
+DataForSEO and asks an AI (Claude) which rising products the shop does not
+carry, in English and Arabic. A product the shop already has as an item, by
+name in either language, is left out.
+
+Set up: Lumen gives the shop a URL, an API Key and an API Secret. Type them in
+**Lumen Shelf Settings > Trending products**, switch on **Suggest trending
+products**, and press **Refresh trending products now** (or wait for the
+week). The answer takes a few minutes. **Result of the last refresh** says what
+happened.
+
+Credit. Each shop has a free allowance on the trends service every month (set
+by Lumen, renewed on the 1st). Beyond it, the service uses the shop's prepaid
+credit. The settings show the **Credit balance** and the **Free allowance left
+this month** (in US dollars, at the service's own cost), refreshed after each
+run or with **Check credit**. **Top up credit** opens Lumen's contact: Lumen
+adds the credit once paid. When the allowance and the credit are both used up,
+the shop gets no new suggestions until it tops up or the month turns, and the
+rest of Lumen Shelf works as before. The screen says when the credit runs low.
+
 ### Forecast accuracy (Shelf Forecast Accuracy)
 
 What Lumen Shelf forecast 14 days ago for each outlet and item, against what
@@ -385,6 +418,8 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
 
 - **Enabled** switches the whole app off for everyone.
 - **Respect shelf capacity** (on): uses ERPNext's Putaway Rules, see section 3.
+- **Suggest trending products** (off until Lumen gives a key), with the
+  trends service URL, API Key and API Secret, see section 2.
 - **Suggest transfers between outlets**, **Show stock health**, **Adjust for
   seasons**, **Show rising and falling items**, **Show lost sales**, **Plan
   purchases within a budget**, **Show forecast accuracy**, **Forecast by demand
@@ -411,6 +446,8 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
 - **Create material requests**: Shelf Manager, Stock Manager, Purchase
   Manager, System Manager, with ERPNext's own permission to create (and
   submit) a Material Request. Not Shelf User.
+- **Trending products**: every role that sees the lists. Refresh now and
+  Dismissed: Shelf Manager and System Manager.
 - The checks are on the server, not only in the screen.
 
 ## 8. LumenPOS and other apps
@@ -457,6 +494,16 @@ The contract, version 2 (`lumen_shelf.api`):
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.9.0 (2026-11-01)
+
+- Trending products: products rising in Google searches in your country and
+  worldwide that you do not sell yet, with the reason in English and Arabic.
+  New screen **Trending products**, refreshed once a week by Lumen's trends
+  service. Only names are sent, never quantities, prices or customers.
+- Switch **Suggest trending products** (off by default, needs a key from Lumen).
+- Credit: a free allowance each month, then prepaid credit that Lumen tops up.
+  **Check credit** and **Top up credit** in the settings, a warning when low.
 
 ### 0.8.0 (2026-10-31)
 

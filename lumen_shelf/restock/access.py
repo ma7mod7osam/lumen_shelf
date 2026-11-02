@@ -56,6 +56,11 @@ def has_view_role(user=None):
 	return bool(viewer_roles() & set(frappe.get_roles(user)))
 
 
+def has_settings_role(user=None):
+	user = user or frappe.session.user
+	return user == "Administrator" or bool(set(SETTINGS_ROLES) & set(frappe.get_roles(user)))
+
+
 def can_view(user=None):
 	"""For the apps screen and for callers: never raises."""
 	try:

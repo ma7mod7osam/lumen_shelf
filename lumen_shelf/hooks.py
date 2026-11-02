@@ -13,7 +13,7 @@ add_to_apps_screen = [
 		"name": app_name,
 		"logo": "/assets/lumen_shelf/images/icon.svg",
 		"title": app_title,
-		"route": "/app/lumen-shelf",
+		"route": "/app/shelf-today",
 		"has_permission": "lumen_shelf.restock.access.can_view",
 	}
 ]

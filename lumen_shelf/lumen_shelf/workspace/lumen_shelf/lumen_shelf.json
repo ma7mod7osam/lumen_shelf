@@ -2,8 +2,8 @@
  "app": "lumen_shelf",
  "category": "Modules",
  "charts": [],
- "content": "[{\"id\":\"rs_head\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Lumen Shelf</b></span>\",\"col\":12}},{\"id\":\"rs_sc_0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Running low\",\"col\":4}},{\"id\":\"rs_sc_1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transfer suggestions\",\"col\":4}},{\"id\":\"rs_sc_2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock health\",\"col\":4}},{\"id\":\"rs_sc_3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Forecast accuracy\",\"col\":4}},{\"id\":\"rs_sc_4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Bought together\",\"col\":4}},{\"id\":\"rs_sc_5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Assortment gaps\",\"col\":4}},{\"id\":\"rs_sc_6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Promotions\",\"col\":4}},{\"id\":\"rs_sc_7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Trending products\",\"col\":4}},{\"id\":\"rs_sc_set\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Lumen Shelf Settings\",\"col\":4}},{\"id\":\"rs_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Restock\",\"col\":4}}]",
- "creation": "2026-11-01 12:00:00.000000",
+ "content": "[{\"id\":\"rs_head\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Lumen Shelf</b></span>\",\"col\":12}},{\"id\":\"rs_sc_today\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Today\",\"col\":4}},{\"id\":\"rs_sc_0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Running low\",\"col\":4}},{\"id\":\"rs_sc_1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transfer suggestions\",\"col\":4}},{\"id\":\"rs_sc_2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock health\",\"col\":4}},{\"id\":\"rs_sc_3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Forecast accuracy\",\"col\":4}},{\"id\":\"rs_sc_4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Bought together\",\"col\":4}},{\"id\":\"rs_sc_5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Assortment gaps\",\"col\":4}},{\"id\":\"rs_sc_6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Promotions\",\"col\":4}},{\"id\":\"rs_sc_7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Trending products\",\"col\":4}},{\"id\":\"rs_sc_set\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Lumen Shelf Settings\",\"col\":4}},{\"id\":\"rs_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Restock\",\"col\":4}}]",
+ "creation": "2026-11-02 10:00:00.000000",
  "custom_blocks": [],
  "developer_mode_only": 0,
  "disable_user_customization": 0,
@@ -127,7 +127,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-11-01 12:00:00.000000",
+ "modified": "2026-11-02 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Lumen Shelf",
  "name": "Lumen Shelf",
@@ -139,6 +139,13 @@
  "roles": [],
  "sequence_id": 50.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Today",
+   "link_to": "shelf-today",
+   "type": "Page"
+  },
   {
    "color": "Grey",
    "doc_view": "",

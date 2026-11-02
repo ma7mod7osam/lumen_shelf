@@ -1,6 +1,6 @@
 {
  "app": "lumen_shelf",
- "creation": "2026-11-01 12:00:00.000000",
+ "creation": "2026-11-02 10:00:00.000000",
  "docstatus": 0,
  "doctype": "Desktop Icon",
  "hidden": 0,
@@ -10,7 +10,7 @@
  "label": "Lumen Shelf",
  "link_to": "Lumen Shelf",
  "link_type": "Workspace Sidebar",
- "modified": "2026-11-01 12:00:00.000000",
+ "modified": "2026-11-02 10:00:00.000000",
  "modified_by": "Administrator",
  "name": "Lumen Shelf",
  "owner": "Administrator",

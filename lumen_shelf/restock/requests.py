@@ -81,6 +81,8 @@ def chosen_lines(result, allowed, scope, filters):
 		]
 	else:
 		frappe.throw(_("Unknown list."))
+	if f.item_code:  # one task's button on the Lumen Shelf page
+		out = [l for l in out if l["item_code"] == f.item_code]
 	if allowed is not None:
 		out = [l for l in out if all(w in allowed for w in (l["from_warehouse"], l["to_warehouse"]) if w)]
 	return out

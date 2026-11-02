@@ -1,6 +1,6 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.9.0 (trending products).
+*Applies to Lumen Shelf v0.10.0 (one page for today).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
@@ -55,6 +55,34 @@ from the item's most recent Purchase Order. The main warehouse is found on its
 own (section 5). The settings page shows what was found.
 
 ## 2. The screens
+
+### Today (the Lumen Shelf page)
+
+Lumen Shelf opens on one page with everything that needs doing today. Choose
+the company and, if you like, one branch or warehouse.
+
+- **Four numbers** at the top: items that need restocking (and how many are
+  already out of stock), moves between branches instead of buying, stock that
+  may expire before it sells, and stock that does not sell (with its value).
+  Click a number to open its detail screen.
+- **Today's tasks**: one list, most urgent first. Restocking first (red when it
+  runs out within the delivery time), then moves to the branch where an item
+  sells faster, then stock that may expire, then stock that does not sell.
+  Each line says what to do: buy, transfer from a branch, wait for the main
+  warehouse, discount, return to the supplier. **Request** on a line makes the
+  ERPNext Material Request for that item alone, **Request all shortages** for
+  every shortage shown. The same preview and the same checks as on the detail
+  screens (section 2a). The buttons show only to people who may make requests.
+- **Product ideas**: items that sell in another branch and are missing here,
+  items often bought together, and trending products (when switched on).
+- **Detail screens**: the eight screens below, for anyone who wants every
+  column.
+
+Every part follows its own switch in the settings, and the same permissions
+as its detail screen: a person limited to some branches sees those branches.
+The numbers are the detail screens' numbers, worked out once.
+
+### The detail screens
 
 All eight are ERPNext reports, so they sort, filter, export to Excel and print
 like any other report, in English or Arabic, light or dark.
@@ -494,6 +522,12 @@ The contract, version 2 (`lumen_shelf.api`):
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.10.0 (2026-11-02)
+
+- One page for today: the four numbers that matter, one list of tasks with a
+  **Request** button on each line, and product ideas. Lumen Shelf now opens on
+  it. The eight screens stay as detail screens behind it.
 
 ### 0.9.0 (2026-11-01)
 

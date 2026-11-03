@@ -90,4 +90,9 @@ def collect(root=ROOT):
 							out.add(fl[k])
 					if fl.get("fieldtype") == "Select" and fl.get("options"):
 						out.update(o for o in fl["options"].split("\n") if o and not o.endswith("%"))
+	# the app at /shelf: its texts, listed at build time (frontend/extract-strings.mjs)
+	app = os.path.join(root, "restock", "app_strings.json")
+	if os.path.exists(app):
+		with open(app, encoding="utf-8") as fh:
+			out.update(json.load(fh))
 	return sorted(s.replace('\\"', '"') for s in out)

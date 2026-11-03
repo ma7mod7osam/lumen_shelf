@@ -1,6 +1,6 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.10.1 (one page for today).
+*Applies to Lumen Shelf v0.11.0 (the Lumen Shelf app).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
@@ -56,10 +56,33 @@ own (section 5). The settings page shows what was found.
 
 ## 2. The screens
 
-### Today (the Lumen Shelf page)
+### The Lumen Shelf app (/shelf)
 
-Lumen Shelf opens on one page with everything that needs doing today. Choose
-the company and, if you like, one branch or warehouse.
+Lumen Shelf is one app of its own at **/shelf** on the site, like LumenPOS at
+/pos. The Lumen Shelf icon on the apps screen, the Lumen Shelf entry in the
+side menu and its first shortcut all open it. Everything is inside it, with
+its own menu (a bar at the bottom on a phone):
+
+- **Today**: what needs doing today (below).
+- **Running low**, **Transfer suggestions**, **Stock health**, **Promotions**
+  and **Forecast accuracy**: the detail screens, each with its own filters, a
+  search box, sorting by any column and **Save for Excel**.
+- **Product ideas**: trending in the market, missing in a branch, often bought
+  together, one tab each.
+- **Settings**: every setting, for a Shelf Manager or System Manager. A saved
+  API secret is never shown, typing a new one replaces it.
+
+The company is chosen at the top. The app follows the person's language
+(Arabic right to left) and light or dark theme, and the moon button switches
+the theme. **Back to ERPNext** returns to the desk. A screen whose switch is
+off is not in the menu. The figures, filters and permissions are exactly the
+ERPNext reports' (the app shows their rows), so a person sees in the app what
+they may see in the reports and nothing more.
+
+### Today
+
+The first screen of the app has everything that needs doing today. Choose,
+if you like, one branch or warehouse.
 
 - **Four numbers** at the top: items that need restocking (and how many are
   already out of stock), moves between branches instead of buying, stock that
@@ -75,8 +98,6 @@ the company and, if you like, one branch or warehouse.
   screens (section 2a). The buttons show only to people who may make requests.
 - **Product ideas**: items that sell in another branch and are missing here,
   items often bought together, and trending products (when switched on).
-- **Detail screens**: the eight screens below, for anyone who wants every
-  column.
 
 Every part follows its own switch in the settings, and the same permissions
 as its detail screen: a person limited to some branches sees those branches.
@@ -84,8 +105,9 @@ The numbers are the detail screens' numbers, worked out once.
 
 ### The detail screens
 
-All eight are ERPNext reports, so they sort, filter, export to Excel and print
-like any other report, in English or Arabic, light or dark.
+The app shows them, and all eight are also ERPNext reports in the desk, so
+they sort, filter, export to Excel and print like any other report, in
+English or Arabic, light or dark.
 
 ### Running low (Shelf Running Low)
 
@@ -526,6 +548,14 @@ The contract, version 2 (`lumen_shelf.api`):
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.11.0 (2026-11-03)
+
+- Lumen Shelf is now one app of its own at /shelf, like LumenPOS: Today, every
+  detail screen, product ideas and the settings, with its own menu, in
+  English and Arabic, light and dark, on a computer or a phone. The apps
+  screen and the side menu open it. The numbers and permissions are the
+  reports' own.
 
 ### 0.10.1 (2026-11-03)
 

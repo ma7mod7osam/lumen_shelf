@@ -241,6 +241,6 @@ class TestHome(RestockCase):
 	def test_page_is_the_way_in(self):
 		self.assertTrue(frappe.db.exists("Page", "shelf-today"))
 		hooks = frappe.get_hooks("add_to_apps_screen", app_name="lumen_shelf") or []
-		self.assertIn("/app/shelf-today", [h.get("route") for h in hooks])
+		self.assertIn("/shelf", [h.get("route") for h in hooks])  # the app (test_app)
 		ws = frappe.get_doc("Workspace", "Lumen Shelf")
 		self.assertEqual((ws.shortcuts[0].type, ws.shortcuts[0].link_to), ("Page", "shelf-today"))

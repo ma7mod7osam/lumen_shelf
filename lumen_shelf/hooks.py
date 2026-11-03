@@ -7,13 +7,17 @@ app_license = "Proprietary"
 
 required_apps = ["erpnext"]
 
+# The app (frontend/, built into public/shelf) is one page at /shelf, its
+# screens are the app's own routes after it.
+website_route_rules = [{"from_route": "/shelf/<path:app_path>", "to_route": "shelf"}]
+
 # Frappe's apps screen (v15, v16). Shown to whoever may see the suggestions.
 add_to_apps_screen = [
 	{
 		"name": app_name,
 		"logo": "/assets/lumen_shelf/images/icon.svg",
 		"title": app_title,
-		"route": "/app/shelf-today",
+		"route": "/shelf",
 		"has_permission": "lumen_shelf.restock.access.can_view",
 	}
 ]

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ 'rtl' if rtl else 'ltr' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lumen Shelf</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/lumen_shelf/images/icon.svg">
+  <meta name="theme-color" content="#1463FF">
+  <link rel="stylesheet" href="/assets/lumen_shelf/shelf/shelf.css?v={{ shelf_version }}">
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    window.csrf_token = "{{ csrf_token }}";
+    window.shelf_version = "{{ shelf_version }}";
+  </script>
+  <script type="module" src="/assets/lumen_shelf/shelf/shelf.js?v={{ shelf_version }}"></script>
+</body>
+</html>

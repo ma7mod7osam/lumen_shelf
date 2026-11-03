@@ -26,6 +26,7 @@ EXTRA = [
 	"No sales",
 	"Slow",
 	"Overstock",
+	"Warehouse does not sell",
 	"Transfer first, then buy",
 	"Buy from supplier",
 	"Transfer from main warehouse",

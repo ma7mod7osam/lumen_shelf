@@ -1,6 +1,6 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.10.0 (one page for today).
+*Applies to Lumen Shelf v0.10.1 (one page for today).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
@@ -218,6 +218,10 @@ value, B = the next 15%, C = the rest), and a status:
 - **Overstock**: lasts longer than the overstock limit (60 days) and is more
   than the outlet needs. Excess qty and value show how much.
 - **Too new**: not enough days in stock to judge yet.
+- **Warehouse does not sell**: the warehouse sold nothing at all in the
+  window (Stores, Work In Progress, Finished Goods, a store room). Its stock
+  is not counted as not selling and gets no discount. The main warehouse is
+  never put here, it supplies the outlets.
 - **OK**.
 
 Days left shows **365+** when what is on the shelf lasts more than a year.
@@ -522,6 +526,13 @@ The contract, version 2 (`lumen_shelf.api`):
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.10.1 (2026-11-03)
+
+- A warehouse that sold nothing at all in the window (Work In Progress,
+  Finished Goods, a store room) is no longer listed as stock that does not
+  sell. Its new status is **Warehouse does not sell**.
+- The page's branch filter was too narrow and cut off its text.
 
 ### 0.10.0 (2026-11-02)
 

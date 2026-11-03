@@ -27,6 +27,7 @@ frappe.query_reports["Shelf Stock Health"] = {
 				{ value: "Slow", label: __("Slow") },
 				{ value: "Overstock", label: __("Overstock") },
 				{ value: "Too new", label: __("Too new") },
+				{ value: "Warehouse does not sell", label: __("Warehouse does not sell") },
 				{ value: "OK", label: __("OK") },
 			],
 		},
@@ -56,6 +57,7 @@ frappe.query_reports["Shelf Stock Health"] = {
 				Slow: "text-warning",
 				Overstock: "text-warning",
 				OK: "text-muted",
+				"Warehouse does not sell": "text-muted",
 			}[data.status_key];
 			if (cls) value = `<span class="${cls}" style="font-weight: 600">${value}</span>`;
 		}

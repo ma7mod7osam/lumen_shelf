@@ -39,6 +39,8 @@ class LumenShelfToday {
 			get_query: () => ({ filters: { company: this.company.get_value(), is_group: 0 } }),
 			change: () => this.refresh(),
 		});
+		// Frappe gives page filters a narrow column: the placeholder was cut off
+		for (const f of [this.company, this.warehouse]) f.$wrapper.removeClass("col-md-2").addClass("lsh-filter");
 		page.set_secondary_action(__("Refresh"), () => this.refresh(), "refresh");
 	}
 
@@ -46,6 +48,7 @@ class LumenShelfToday {
 		if (document.getElementById("lsh-style")) return;
 		const css = `
 .lsh { padding: 4px 0 32px; }
+.page-form .lsh-filter { flex: 0 1 240px; width: 240px; max-width: 100%; min-width: 0; }
 .lsh .lsh-basis { color: var(--text-muted); font-size: 12px; margin-bottom: 14px; }
 .lsh .lsh-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 22px; }
 .lsh .lsh-card { background: var(--card-bg, var(--fg-color)); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px 16px; cursor: pointer; }

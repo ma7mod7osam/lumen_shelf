@@ -51,6 +51,7 @@ STATUS_NEW = "Too new"
 STATUS_NO_SALES = "No sales"
 STATUS_SLOW = "Slow"
 STATUS_OVERSTOCK = "Overstock"
+STATUS_NOT_SALES_WH = "Warehouse does not sell"
 
 TREND_RISING = "Rising"
 TREND_FALLING = "Falling"
@@ -434,7 +435,7 @@ def _compute(company, as_of, items, s):
 				if mp["need"] > model.EPS:
 					lines.append(_buy(item, main, mp["need"], mp))
 
-	_health(pairs, s)
+	_health(pairs, s, main)
 	_abc(pairs)
 
 	if s["expiry"]:
@@ -694,12 +695,21 @@ def _buy(item, wh, qty, p):
 	}
 
 
-def _health(pairs, s):
-	for p in pairs.values():
+def _health(pairs, s, main=None):
+	# Stock not selling is a problem only where things are sold: a warehouse
+	# that sold nothing at all in the window (Stores, Work In Progress,
+	# Finished Goods, a store room) is not a shop. The main warehouse counts,
+	# it supplies the outlets.
+	selling = {wh for (item, wh), p in pairs.items() if abs(p["sold_qty"]) > model.EPS}
+	if main:
+		selling.add(main)
+	for (item, wh), p in pairs.items():
 		target = p.get("target", 0.0)
 		excess = max(0.0, p["on_shelf"] - p["so_reserved"] - target)
 		dl = model.days_left(p["on_shelf"], p["speed"])
-		if not p["eligible"]:
+		if wh not in selling:
+			status = STATUS_NOT_SALES_WH
+		elif not p["eligible"]:
 			status = STATUS_NEW
 		elif p["speed"] <= model.EPS:
 			status = STATUS_NO_SALES if p["on_shelf"] > model.EPS else STATUS_OK

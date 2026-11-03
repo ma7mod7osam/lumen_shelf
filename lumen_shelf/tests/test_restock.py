@@ -10,7 +10,7 @@ import unittest
 import frappe
 from frappe.utils import flt
 
-from lumen_shelf.restock import engine
+from lumen_shelf.restock import engine, home
 from lumen_shelf.restock import settings as st
 from lumen_shelf.tests import fixtures, oracle
 
@@ -352,6 +352,24 @@ class TestHealth(RestockCase):
 		got = {n: self.pair(n, "HL")["status"] for n in ("H1", "H2", "H3", "H4")}
 		self.assertEqual(got, {"H1": "Slow", "H2": "No sales", "H3": "Overstock", "H4": "Too new"})
 		self.assertEqual(self.pair("A1", "O1")["status"], "OK")
+
+	def test_warehouse_that_does_not_sell(self):
+		# Work In Progress, Finished Goods, a store room: no sale at all in the
+		# window, so its stock is not "not selling" and gets no discount
+		def pair(sold, speed, on_shelf):
+			return {"eligible": 1, "speed": speed, "on_shelf": on_shelf, "so_reserved": 0.0, "target": 0.0, "valuation_rate": 10.0, "sold_qty": sold}
+
+		pairs = {
+			("A", "SHOP"): pair(6, 0.1, 100),
+			("B", "SHOP"): pair(0, 0.0, 10),
+			("C", "WIP"): pair(0, 0.0, 10),
+			("D", "MAIN"): pair(0, 0.0, 10),
+		}
+		engine._health(pairs, {"slow_days": 90, "overstock_days": 60}, "MAIN")
+		got = {k[0]: p["status"] for k, p in pairs.items()}
+		self.assertEqual(got, {"A": engine.STATUS_SLOW, "B": engine.STATUS_NO_SALES, "C": engine.STATUS_NOT_SALES_WH, "D": engine.STATUS_NO_SALES})
+		self.assertEqual(pairs[("C", "WIP")]["excess_value"], 0)
+		self.assertNotIn(engine.STATUS_NOT_SALES_WH, home.STUCK)
 
 	def test_overstock_value(self):
 		p = self.pair("H3", "HL")

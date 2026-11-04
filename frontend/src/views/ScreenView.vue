@@ -77,6 +77,25 @@ watch(
 	{ deep: true }
 );
 
+// plain words: what the screen is for, what its columns mean, and on request
+// how the numbers were worked out
+const showAll = ref(false);
+const showHelp = ref(false);
+const showBasis = ref(false);
+watch(
+	() => props.name,
+	() => {
+		showAll.value = showHelp.value = showBasis.value = false;
+	}
+);
+const helpRows = computed(() => {
+	if (!data.value || !def.value) return [];
+	const help = def.value.help || {};
+	const main = def.value.main || [];
+	const cols = data.value.columns.filter((c) => !c.hidden && (showAll.value || !main.length || main.includes(c.fieldname)));
+	return cols.filter((c) => help[c.fieldname]).map((c) => ({ label: c.label, text: help[c.fieldname] }));
+});
+
 const canRequest = computed(() => def.value && def.value.scope && state.boot.can_request && data.value && data.value.rows.length);
 function request() {
 	startRequest(def.value.scope, { ...model, company: state.company }, () => load(true));
@@ -119,6 +138,7 @@ async function refreshTrends() {
 		<header v-if="!embedded" class="screen-head">
 			<h1>{{ def.title }}</h1>
 		</header>
+		<p v-if="def.intro" class="screen-intro">{{ def.intro }}</p>
 		<div class="screen-bar">
 			<FilterBar :filters="def.filters" :model="model" />
 			<div class="screen-actions">
@@ -129,7 +149,24 @@ async function refreshTrends() {
 				<button v-if="canRequest" class="btn primary" type="button" @click="request">{{ __("Create material requests") }}</button>
 			</div>
 		</div>
-		<p v-if="data && data.message" class="basis">{{ data.message }}</p>
+		<p v-if="data" class="basis">
+			<button v-if="helpRows.length" class="link" type="button" @click="showHelp = !showHelp">
+				{{ showHelp ? __("Hide the explanation") : __("What the columns mean") }}
+			</button>
+			<button v-if="data.message" class="link" type="button" @click="showBasis = !showBasis">
+				{{ showBasis ? __("Hide the details") : __("How we calculated this") }}
+			</button>
+		</p>
+		<p v-if="data && data.message && showBasis" class="basis detail">{{ data.message }}</p>
+		<div v-if="showHelp && helpRows.length" class="col-help">
+			<strong>{{ __("What the columns mean") }}</strong>
+			<dl>
+				<template v-for="h in helpRows" :key="h.label">
+					<dt>{{ h.label }}</dt>
+					<dd>{{ h.text }}</dd>
+				</template>
+			</dl>
+		</div>
 		<div v-if="data && data.summary.length" class="summary">
 			<div v-for="s in data.summary" :key="s.label" class="summary-item">
 				<span class="muted small">{{ s.label }}</span>
@@ -146,6 +183,8 @@ async function refreshTrends() {
 			:rows="data.rows"
 			:currency="data.currency || ''"
 			:row-action="rowAction"
+			:main="def.main || []"
+			v-model:show-all="showAll"
 			:class="{ dim: loading }"
 		/>
 	</section>

@@ -101,6 +101,7 @@ def boot():
 	s = st.get_settings()
 	lang = frappe.local.lang or "en"
 	user = frappe.session.user
+	companies = frappe.get_list("Company", fields=["name", "abbr"], order_by="name asc", limit_page_length=0)
 	return {
 		"version": __version__,
 		"user": user,
@@ -115,7 +116,10 @@ def boot():
 		"screens": _screens(s) if access.can_view() else {},
 		"budget_plan": int(bool(s.get("budget_plan"))),
 		"company": home.default_company() if access.can_view() else None,
-		"companies": frappe.get_list("Company", pluck="name", order_by="name asc", limit_page_length=0),
+		"companies": [c.name for c in companies],
+		# the short name ERPNext adds to each warehouse ("Stores - LUMD"), so
+		# the screens can say "Stores"
+		"abbrs": {c.name: c.abbr for c in companies},
 		"messages": {t: _(t) for t in app_strings()},
 	}
 

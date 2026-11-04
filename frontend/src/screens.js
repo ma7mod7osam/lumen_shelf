@@ -61,6 +61,57 @@ export function look(name, col, row) {
 	return null;
 }
 
+// What each column means, in plain words. Shown under "What the columns mean"
+// for the columns on screen.
+function columnHelp() {
+	return {
+		item_name: __("The item."),
+		warehouse: __("The branch or warehouse."),
+		on_shelf: __("How many you have now, less what the till has sold and not yet booked."),
+		daily_sales: __("How many it sold on an average day while it was in stock."),
+		forecast: __("How many we expect it to sell a day from now on."),
+		days_left: __("How many days what you have now will last at the expected sales."),
+		on_order: __("Already ordered or requested and not received yet."),
+		reorder_point: __("When stock falls to this number, it is time to order again."),
+		suggested_qty: __("How many to bring in so it lasts until the next delivery and the days of cover you chose."),
+		source: __("Where it should come from: another branch or warehouse, or a supplier."),
+		supplier: __("The supplier we suggest, from the item's settings or the last purchase."),
+		season_factor: __("How last year's sales in the coming weeks change the forecast. 1.5 means 50% more."),
+		promo_factor: __("How a planned promotion raises the forecast."),
+		lead_time: __("How many days a delivery usually takes."),
+		from_warehouse: __("The branch or warehouse that sends."),
+		to_warehouse: __("The branch or warehouse that receives."),
+		qty: __("How many to move."),
+		reason: __("Why: it is running low there, or it sells faster there."),
+		to_days_left: __("How many days the receiving branch has left."),
+		status: __("No sales: nothing sold. Slow: sells too little for what you hold. Overstock: far more than it needs. OK: fine."),
+		action: __("What we suggest doing with stock that does not sell."),
+		sold_qty: __("How many it sold in the weeks we looked at."),
+		excess_value: __("The value of the stock above what it needs: money tied up."),
+		excess_qty: __("How many you hold above what it needs."),
+		abc: __("A: the items that bring most of your sales. B: the middle. C: the items that bring little."),
+		pattern: __("How it sells: steady, uneven, now and then, or rarely and in big amounts."),
+		trend_status: __("Rising or falling: whether it sells more or less lately than before."),
+		trend: __("How much more or less it sells lately, in percent."),
+		lost_value: __("Sales missed on the days it was out of stock."),
+		expiry_risk_value: __("The value of what may pass its expiry date before it sells."),
+		next_promotion: __("The next promotion planned for it."),
+		next_from: __("When the promotion starts."),
+		lift: __("How many times more it sells. 2 means twice as many."),
+		extra_qty: __("The extra quantity added to the suggestion for the promotion."),
+		product: __("A product people search for more and more."),
+		item_group: __("The group of items it belongs to."),
+		growth: __("How much the searches for it grew, in percent."),
+		sells_in: __("The branches where it sells."),
+		start_qty: __("A first quantity to try in this branch."),
+		partner_name: __("The item bought with it."),
+		together: __("On how many invoices the two were bought together."),
+		forecast_qty: __("What we expected it to sell in the last 14 days."),
+		actual_qty: __("What it really sold."),
+		error_pct: __("How far the forecast was from what sold. Closer to 0 is better."),
+	};
+}
+
 export function screens(boot) {
 	const all = [
 		{
@@ -69,6 +120,8 @@ export function screens(boot) {
 			short: __("Low items"),
 			icon: "low",
 			scope: "running_low",
+			intro: __("Items that will run out before a new delivery can arrive, and how many to bring in. Create material requests prepares them in ERPNext for the lines shown."),
+			main: ["item_name", "warehouse", "on_shelf", "days_left", "suggested_qty", "source", "supplier"],
 			filters: [
 				company,
 				warehouse(),
@@ -90,6 +143,8 @@ export function screens(boot) {
 			short: __("Branch moves"),
 			icon: "move",
 			scope: "transfers",
+			intro: __("Stock to move from one branch to another instead of buying more: where it runs low, or where it sells faster."),
+			main: ["item_name", "from_warehouse", "to_warehouse", "qty", "reason", "to_days_left"],
 			filters: [
 				company,
 				{ fieldname: "from_warehouse", type: "link", doctype: "Warehouse", label: __("From branch") },
@@ -109,6 +164,8 @@ export function screens(boot) {
 			name: "stock_health",
 			title: __("Stock health"),
 			icon: "health",
+			intro: __("How each item sells in each branch, and what to do with stock that does not sell."),
+			main: ["item_name", "warehouse", "status", "action", "on_shelf", "sold_qty", "excess_value"],
 			filters: [
 				company,
 				warehouse(),
@@ -137,12 +194,22 @@ export function screens(boot) {
 				},
 			],
 		},
-		{ name: "promotions", title: __("Promotions"), icon: "tag", filters: [company, warehouse()] },
+		{
+			name: "promotions",
+			title: __("Promotions"),
+			icon: "tag",
+			intro: __("How much more each item sold on offer, and the extra stock planned for the next promotion."),
+			main: ["item_name", "warehouse", "next_promotion", "next_from", "lift", "extra_qty"],
+			filters: [company, warehouse()],
+		},
 		{
 			name: "trending_products",
 			title: __("Trending in the market"),
 			icon: "spark",
 			idea: 1,
+			intro: __("Products people search for more and more in your country, that you do not sell yet."),
+			main: ["product", "reason", "item_group", "growth"],
+			ownHelp: { reason: __("Why it may suit your shop.") },
 			filters: [
 				company,
 				itemGroup(),
@@ -157,17 +224,35 @@ export function screens(boot) {
 				},
 			],
 		},
-		{ name: "assortment_gaps", title: __("Missing in a branch"), icon: "gap", idea: 1, filters: [company, warehouse()] },
+		{
+			name: "assortment_gaps",
+			title: __("Missing in a branch"),
+			icon: "gap",
+			idea: 1,
+			intro: __("Items that sell well in one branch and that another branch does not stock at all. Worth trying there."),
+			main: ["item_name", "warehouse", "sells_in", "daily_sales", "start_qty"],
+			filters: [company, warehouse()],
+		},
 		{
 			name: "bought_together",
 			title: __("Often bought together"),
 			icon: "link",
 			idea: 1,
+			intro: __("Customers buy these on the same invoice. Put them side by side, or sell them as a set."),
+			main: ["item_name", "partner_name", "together"],
 			filters: [company, { fieldname: "item_code", type: "link", doctype: "Item", label: __("With item") }],
 		},
-		{ name: "forecast_accuracy", title: __("Forecast accuracy"), icon: "target", filters: [company, warehouse()] },
+		{
+			name: "forecast_accuracy",
+			title: __("Forecast accuracy"),
+			icon: "target",
+			intro: __("How close our forecast of 14 days ago came to what really sold. It shows whether you can trust the suggestions."),
+			main: ["item_name", "warehouse", "forecast_qty", "actual_qty", "error_pct"],
+			filters: [company, warehouse()],
+		},
 	];
-	return all.filter((s) => boot.screens && boot.screens[s.name]);
+	const help = columnHelp();
+	return all.filter((s) => boot.screens && boot.screens[s.name]).map((s) => ({ ...s, help: { ...help, ...(s.ownHelp || {}) } }));
 }
 
 // the desk report a Today card or idea points at, as a screen of the app

@@ -141,6 +141,10 @@ class TestApp(RestockCase):
 		self.assertIn(self.company, got)
 		for c in other:
 			self.assertNotIn(c, got)
+		self.assertEqual(set(app.boot()["abbrs"]), set(got))
+
+	def test_boot_short_company_names(self):
+		self.assertEqual(app.boot()["abbrs"][self.company], frappe.db.get_value("Company", self.company, "abbr"))
 
 	def test_today_is_the_overview(self):
 		self.assertEqual(app.overview(company=self.company), home.overview(company=self.company))

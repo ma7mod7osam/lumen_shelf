@@ -269,6 +269,7 @@ def stock_health(result, allowed, warehouse=None, status=None, abc=None, trend=N
 				"pattern": _(p["pattern"]) if p.get("pattern") else "",
 				"action_key": p.get("action") or "",
 				"action": action_text(p),
+				"action_target": p.get("action_target"),
 				"expiry_risk_qty": _q(p.get("expiry_risk_qty")),
 				"expiry_risk_value": _q(p.get("expiry_risk_value")),
 			}

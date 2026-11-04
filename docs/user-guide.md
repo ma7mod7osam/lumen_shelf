@@ -1,6 +1,6 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.11.0 (the Lumen Shelf app).
+*Applies to Lumen Shelf v0.12.0 (the app explains itself).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
@@ -84,20 +84,34 @@ they may see in the reports and nothing more.
 The first screen of the app has everything that needs doing today. Choose,
 if you like, one branch or warehouse.
 
+The first time it opens, a short note says what Lumen Shelf does in three
+steps. **Got it** hides it on that device, **How it works** brings it back.
+Under the title one line says what the numbers are based on (the last weeks
+of sales up to yesterday, and the stock now). **How we calculated this** shows
+the full detail: dates, main warehouse, where restocking comes from, seasons.
+
 - **Four numbers** at the top: items that need restocking (and how many are
   already out of stock), moves between branches instead of buying, stock that
   may expire before it sells, and stock that does not sell (with its value).
-  Click a number to open its detail screen.
+  Under each number one line says what it counts. Click a number to open its
+  detail screen.
 - **Today's tasks**: one list, most urgent first. Restocking first (red when it
   runs out within the delivery time), then moves to the branch where an item
   sells faster, then stock that may expire, then stock that does not sell.
-  Each line says what to do: buy, transfer from a branch, wait for the main
-  warehouse, discount, return to the supplier. **Request** on a line makes the
+  Each line is written as sentences: what is happening ("Runs out in 3 days",
+  "Not one sold in the last 8 weeks"), why (how much it sells a day or a week,
+  how many are left, how long a delivery takes, what is already on order),
+  and our suggestion (buy 48 from a supplier, transfer from a branch, wait for
+  the main warehouse, put it on offer, return it to the supplier, sell it
+  together with an item bought with it). Stock that does not sell also shows
+  the money tied up in it. Warehouses are named the way people say them
+  ("Stores", not "Stores - LUMD"). **Prepare the request** on a line makes the
   ERPNext Material Request for that item alone, **Request all shortages** for
   every shortage shown. The same preview and the same checks as on the detail
   screens (section 2a). The buttons show only to people who may make requests.
 - **Product ideas**: items that sell in another branch and are missing here,
   items often bought together, and trending products (when switched on).
+  Each box says in one line what it is and what to do with it.
 
 Every part follows its own switch in the settings, and the same permissions
 as its detail screen: a person limited to some branches sees those branches.
@@ -108,6 +122,13 @@ The numbers are the detail screens' numbers, worked out once.
 The app shows them, and all eight are also ERPNext reports in the desk, so
 they sort, filter, export to Excel and print like any other report, in
 English or Arabic, light or dark.
+
+In the app each screen starts with one sentence on what it is for, and shows
+its most useful columns first (for Stock health: item, branch, status,
+suggestion, on shelf, sold, money tied up). **Show all columns** shows the
+rest, **Save for Excel** always saves every column. **What the columns mean**
+explains each column on screen in plain words (for example ABC, demand
+pattern, lift). **How we calculated this** shows what the numbers are based on.
 
 ### Running low (Shelf Running Low)
 
@@ -548,6 +569,19 @@ The contract, version 2 (`lumen_shelf.api`):
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.12.0 (2026-11-04)
+The app explains itself (owner: "I do not understand what the app is saying").
+- Today: every task is written as sentences, what is happening, why and our
+  suggestion, with the money tied up in stock that does not sell. Each number
+  says what it counts, each idea box what to do with it. A three step welcome
+  note (Got it, How it works). The technical line moved behind How we
+  calculated this.
+- Warehouses without the company's short name ("Stores", not "Stores - LUMD").
+- Detail screens: a sentence on what each is for, the main columns first
+  (Show all columns for the rest, the Excel file keeps them all), What the
+  columns mean, and the item name opens the item.
+- Arabic: in "Worth 25,206.46 USD" the amount no longer flips.
 
 ### 0.11.0 (2026-11-03)
 

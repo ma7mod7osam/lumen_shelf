@@ -67,3 +67,22 @@ export function rememberCompany(c) {
 export function savedCompany() {
 	return remember("lumen_shelf_company");
 }
+
+// A warehouse as people say it: "Stores", not "Stores - LUMD" (ERPNext adds
+// the company's short name to every warehouse).
+export function place(w) {
+	if (!w) return w;
+	const abbr = state.boot && state.boot.abbrs && state.boot.abbrs[state.company];
+	if (!abbr) return w;
+	const end = " - " + abbr;
+	return String(w)
+		.split(", ")
+		.map((x) => (x.endsWith(end) ? x.slice(0, -end.length) : x))
+		.join(", ");
+}
+
+// Seen once on this device (the welcome note): kept in the browser only.
+export function seen(key, value) {
+	if (value) return remember("lumen_shelf_" + key, "1");
+	return remember("lumen_shelf_" + key) === "1";
+}

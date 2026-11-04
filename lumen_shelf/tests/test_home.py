@@ -6,6 +6,7 @@ rule (dev/mutations.py) fails its own test.
 Tests that save anything work inside a savepoint and roll back."""
 
 import json
+from unittest.mock import patch
 
 import frappe
 
@@ -91,12 +92,16 @@ class TestHome(RestockCase):
 			src = x["source_key"]
 			seen.add(src)
 			if src == views.SOURCE_TRANSFER:
-				self.assertEqual(t["todo"], "Transfer {0} from {1}".format(home._num(x["transfer_qty"]), x["transfer_from"]))
+				frm = home.place(x["transfer_from"], self.abbr())
+				self.assertNotIn(" - " + self.abbr(), frm)
+				self.assertEqual(t["todo"], "Transfer {0} from {1}".format(home._num(x["transfer_qty"]), frm))
 			elif src == views.SOURCE_WAIT:
 				self.assertEqual(t["todo"], "Wait for main warehouse")
 				self.assertNotIn("request", t)
 			elif src == views.SOURCE_BUY:
 				self.assertTrue(t["todo"].startswith("Buy "), t["todo"])
+				if x["supplier"]:
+					self.assertTrue(t["todo"].endswith(" from " + x["supplier"]), t["todo"])
 			if (x["on_shelf"] or 0) <= 0:
 				self.assertEqual(t["when"], "Already out of stock")
 			else:
@@ -104,6 +109,120 @@ class TestHome(RestockCase):
 			self.assertEqual(t["tone"], "danger" if (x["days_left"] or 0) <= (x["lead_time"] or 0) else "warning")
 		self.assertIn(views.SOURCE_BUY, seen)
 		self.assertIn(views.SOURCE_TRANSFER, seen)
+
+	def abbr(self):
+		return frappe.get_cached_value("Company", self.company, "abbr")
+
+	# ---- 0.12.0 the page explains itself (owner 2026-11-04: "I do not
+	# understand what the app is saying")
+
+	def test_every_task_says_why(self):
+		rows = {(x["item_code"], x["warehouse"]): x for x in views.running_low(self.full(), None)}
+		d = self.page()
+		self.assertEqual({t["kind"] for t in d["tasks"]}, {home.KIND_LOW, home.KIND_MOVE, home.KIND_EXPIRY, home.KIND_STUCK})
+		for t in d["tasks"]:
+			self.assertTrue(t["why"], t)
+			self.assertEqual(t["place"], home.place(t["warehouse"], self.abbr()))
+			self.assertNotIn(" - " + self.abbr(), t["place"])
+			if t["kind"] != home.KIND_LOW:
+				continue
+			x = rows[(t["item_code"], t["warehouse"])]
+			self.assertIn(home._rate(x["forecast"]), t["why"])
+			if (x["on_shelf"] or 0) > 0:
+				self.assertIn(home._num(x["on_shelf"]) + " left on the shelf", t["why"])
+			if x["lead_time"]:
+				self.assertIn("A new delivery takes about {0} days.".format(home._num(x["lead_time"])), t["why"])
+			if x["on_order"]:
+				self.assertIn("{0} already on order.".format(home._num(x["on_order"])), t["why"])
+
+	def test_restock_sentence(self):
+		# a made-up row, so every part of the sentence is there
+		row = {
+			"item_code": "X", "item_name": "X", "warehouse": "O1 - AB", "on_shelf": 12, "forecast": 4, "days_left": 3,
+			"lead_time": 5, "on_order": 10, "source_key": views.SOURCE_BUY, "supplier": "Al Noor", "transfer_from": "",
+			"transfer_qty": None, "buy_qty": 48, "suggested_qty": 48, "purchase_qty": None, "purchase_uom": None, "stock_uom": "Nos",
+		}
+		t = home._low_task(row, False, "AB")
+		self.assertEqual(t["why"], "Expected to sell 4 a day, 12 left on the shelf. A new delivery takes about 5 days. 10 already on order.")
+		self.assertEqual(t["todo"], "Buy 48 from Al Noor")
+		self.assertEqual((t["when"], t["place"]), ("Runs out in 3 days", "O1"))
+		row.update(on_shelf=0, on_order=None, lead_time=0)
+		self.assertEqual(home._low_task(row, False, "AB")["why"], "Expected to sell 4 a day and none is left on the shelf.")
+
+	def test_move_says_where_it_sells(self):
+		moves = {(x["item_code"], x["to_warehouse"]): x for x in views.transfers(self.full(), None)}
+		task = next(t for t in self.page()["tasks"] if t["kind"] == home.KIND_MOVE)
+		x = moves[(task["item_code"], task["warehouse"])]
+		a = self.abbr()
+		self.assertEqual(
+			task["why"],
+			"Sells {0} in {1} and {2} in {3}.".format(
+				home._rate(x["to_daily_sales"]), home.place(x["to_warehouse"], a), home._rate(x["from_daily_sales"]), home.place(x["from_warehouse"], a)
+			),
+		)
+		self.assertEqual(task["todo"], "Move {0} from {1}".format(home._num(x["qty"]), home.place(x["from_warehouse"], a)))
+
+	def test_stuck_in_words(self):
+		health = {(x["item_code"], x["warehouse"]): x for x in views.stock_health(self.full(), None)}
+		weeks = self.full()["settings"]["history_weeks"]
+		seen = set()
+		for t in self.page()["tasks"]:
+			if t["kind"] != home.KIND_STUCK:
+				continue
+			x = health[(t["item_code"], t["warehouse"])]
+			seen.add(x["status_key"])
+			want = {
+				engine.STATUS_NO_SALES: "Not one sold in the last {0} weeks".format(weeks),
+				engine.STATUS_SLOW: "Sells slowly: {0} sold in {1} weeks".format(home._num(x["sold_qty"]), weeks),
+				engine.STATUS_OVERSTOCK: "More stock than it needs",
+			}[x["status_key"]]
+			self.assertEqual(t["when"], want)
+			self.assertEqual(t["todo"], home.advice(x["action_key"], x["action_target"], self.abbr()))
+			self.assertIn(home._about(x["excess_qty"]) + " more than it needs", t["why"])
+		self.assertIn(engine.STATUS_NO_SALES, seen)
+
+	def test_advice_in_words(self):
+		from lumen_shelf.restock import model
+
+		a = self.abbr()
+		self.assertEqual(home.advice(model.ACTION_MOVE, "O1 - " + a, a), "Move it to O1, it sells there")
+		self.assertEqual(home.advice(model.ACTION_RETURN, "Sup X", a), "Return it to Sup X")
+		self.assertEqual(home.advice(model.ACTION_RETURN, None, a), "Return it to the supplier")
+		# the partner by its name, not its code (test items are named by code)
+		real = frappe.get_cached_value
+		with patch.object(home.frappe, "get_cached_value", lambda dt, n, f: "Gift box" if dt == "Item" else real(dt, n, f)):
+			self.assertEqual(home.advice(model.ACTION_BUNDLE, "LUM-BOX", a), "Sell it together with Gift box, they are bought together")
+		self.assertEqual(home.advice(model.ACTION_DISCOUNT, None, a), "Put it on offer or give a discount to sell it")
+		self.assertEqual(home.advice("", None, a), "Look at it")
+
+	def test_warehouse_as_people_say_it(self):
+		self.assertEqual(home.place("Stores - LUMD", "LUMD"), "Stores")
+		self.assertEqual(home.place("A - LUMD, B - LUMD", "LUMD"), "A, B")
+		self.assertEqual(home.place("Stores - OTHER", "LUMD"), "Stores - OTHER")
+		self.assertEqual(home.place("Stores - LUMD", None), "Stores - LUMD")
+		self.assertEqual(home.place(None, "LUMD"), "")
+
+	def test_quantities_rounded_as_people_say_them(self):
+		self.assertEqual(home._about(225.077), "225")
+		self.assertEqual(home._about(9.46), "9.5")
+		self.assertEqual(home._about(3), "3")
+
+	def test_speed_in_words(self):
+		self.assertEqual(home._rate(4), "4 a day")
+		self.assertEqual(home._rate(1.25), "1.2 a day")
+		self.assertEqual(home._rate(0.5), "3.5 a week")
+		self.assertEqual(home._rate(0), "0 a week")
+
+	def test_cards_and_ideas_explain_themselves(self):
+		d = self.page()
+		self.assertEqual({c["key"] for c in d["cards"]}, {"low", "move", "expiry", "stuck"})
+		for c in d["cards"]:
+			self.assertTrue(c["help"], c)
+		for b in d["ideas"]:
+			self.assertTrue(b["help"], b)
+		weeks = self.full()["settings"]["history_weeks"]
+		self.assertEqual(d["intro"], "Based on your sales in the last {0} weeks, up to yesterday, and the stock you have now.".format(weeks))
+		self.assertEqual(d["basis"], views.describe(self.full()))
 
 	def test_numbers_written_plainly(self):
 		self.assertEqual(home._num(12.0), "12")

@@ -69,7 +69,13 @@ in that month.
 Write to support@lumen-solutions.co. The user guide is in
 docs/user-guide.md.
 
-## 9. Changes
+## 9. Governing law
+
+These terms are governed by the laws of the Kingdom of Saudi Arabia. Any
+dispute about them is settled by the competent courts of the Kingdom of
+Saudi Arabia.
+
+## 10. Changes
 
 We may update these terms. The date above shows the latest version. Using
 Lumen Shelf after a change means you accept it.

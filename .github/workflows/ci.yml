@@ -48,7 +48,12 @@ jobs:
           node-version: 20
 
       - name: Install MariaDB client
-        run: sudo apt-get update && sudo apt-get install -y mariadb-client
+        run: |
+          sudo apt-get update && sudo apt-get install -y mariadb-client
+          # the test server has no TLS, newer clients require it by default
+          printf '[client]\nskip-ssl\n' > ~/.my.cnf
+          sudo mkdir -p /etc/mysql/conf.d
+          printf '[client]\nskip-ssl\n' | sudo tee /etc/mysql/conf.d/skip-ssl.cnf
 
       - name: Setup bench
         run: |

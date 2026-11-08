@@ -64,6 +64,19 @@ frappe.ui.form.on("Lumen Shelf Settings", {
 	},
 });
 
+// Bundle ideas: ask Lumen's AI service now, without waiting for the week.
+frappe.ui.form.on("Lumen Shelf Settings", {
+	refresh_bundles_now(frm) {
+		if (frm.is_dirty()) {
+			frappe.msgprint(__("Save the settings first."));
+			return;
+		}
+		frappe
+			.call({ method: "lumen_shelf.restock.bundles.refresh_now", freeze: true })
+			.then((r) => frappe.msgprint({ title: __("Bundle ideas"), message: frappe.utils.escape_html(r.message || ""), indicator: "blue" }));
+	},
+});
+
 // Credit on Lumen's trends service: ask what is left (free), or go and top up.
 frappe.ui.form.on("Lumen Shelf Settings", {
 	check_credit(frm) {

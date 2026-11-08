@@ -1,14 +1,14 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.12.0 (the app explains itself).
+*Applies to Lumen Shelf v0.13.0 (bundle ideas).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
 many days are left on the shelf, and tells you what to transfer between
 warehouses and what to buy, before anything runs out. It reads only what is
 already in ERPNext. It creates a document only when someone presses
-**Create material requests**: then it makes ERPNext Material Requests, and
-nothing else. In **automatic mode** (off by default) it keeps ERPNext's own
+**Create material requests** (ERPNext Material Requests) or **Create bundle**
+(an ERPNext Product Bundle, its item and its price), and nothing else. In **automatic mode** (off by default) it keeps ERPNext's own
 reorder levels up to date every night, and ERPNext raises the requests.
 
 It works on ERPNext v13, v14, v15 and v16, with or without LumenPOS. Sales are
@@ -291,6 +291,56 @@ Pairs of items that were on the same invoice in the history window, at least
 the other one. **Lift**: how many times more often than chance (above 1, they
 go together).
 
+### Bundle ideas (Shelf Bundle Ideas)
+
+Pairs of items your customers buy together that make a natural set, ready to
+sell as one bundle at a small discount. In the app they are cards under
+**Product ideas > Bundle ideas**, one per idea: the bundle's name, the two
+items, why they belong together, how many invoices had both, the **Price of
+the two**, the **Bundle price**, what the **Customer saves** and **Your
+profit** on the cost.
+
+How the ideas are found. Once a week Lumen Shelf takes the pairs that were on
+3 or more invoices together and at least 1.5 times as often as chance, both
+enabled stock items for sale, both in stock, not already in a Product Bundle,
+up to 30 pairs. Pairs with an item that does not sell (No sales, Slow,
+Overstock) come first, since a set helps it sell. It sends Lumen's AI service
+the company's country and, per pair, the two item names and item groups,
+never a quantity, a price, a customer or the shop's name. The AI says which
+pairs are a natural set (tea with sugar, not jeans with a phone) and gives
+each a short name in English and Arabic. The others are kept as **Not a
+match**, under the cards. An answer is kept 30 days on the service, so a pair
+already asked about costs nothing.
+
+The price is worked out by Lumen Shelf, never by the AI: the two selling
+prices in the selling price list (Selling Settings) less the **Bundle
+discount** (10% unless changed). The cost of each is its last purchase rate,
+else its valuation rate. When the profit on that price would fall under the
+**Minimum profit on a bundle** (15% unless changed), the price is raised to
+keep it and the discount is smaller, and the card says so. When even the full
+price leaves less than that, the bundle is sold at the full price. An item
+without a selling price is shown with a note and cannot be made a bundle yet.
+
+**Create bundle** (Shelf Manager or System Manager, who may also create Items,
+Product Bundles and Item Prices in ERPNext) makes three things the ERPNext
+way, all or none: an item named after the bundle (in the language of the
+person who presses it) that is not kept in stock, a Product Bundle of the two
+items (one of each) and its selling price in the price list. Selling the
+bundle in ERPNext takes the two items out of stock. **Not interested** drops
+the idea for good. **Ask for new ideas** asks again now.
+
+At the till. LumenPOS sells the bundle item on ERPNext 14, 15 and 16. The
+price goes in the selling price list of Selling Settings: if an outlet's POS
+Profile uses another price list, add the bundle's price there too. A barcode
+on the bundle item is not needed, but it makes scanning work. On ERPNext 13
+no bundle is made: ERPNext 13's own point of sale stops working while a
+Product Bundle exists. The ideas are still shown, to sell the two together
+with a Pricing Rule.
+
+Set up: the same URL, API Key and API Secret as trending products, in
+**Lumen Shelf Settings > Lumen's AI service**. Switch on **Suggest bundles**.
+It uses the same free allowance and credit as trending products.
+
 ### Assortment gaps (Shelf Assortment Gaps)
 
 Items that sell at least 0.5 a day in one outlet that another outlet did not
@@ -325,7 +375,7 @@ carry, in English and Arabic. A product the shop already has as an item, by
 name in either language, is left out.
 
 Set up: Lumen gives the shop a URL, an API Key and an API Secret. Type them in
-**Lumen Shelf Settings > Trending products**, switch on **Suggest trending
+**Lumen Shelf Settings > Lumen's AI service**, switch on **Suggest trending
 products**, and press **Refresh trending products now** (or wait for the
 week). The answer takes a few minutes. **Result of the last refresh** says what
 happened.
@@ -493,8 +543,10 @@ rejected warehouses, and warehouses marked **Leave out** are not used.
 
 - **Enabled** switches the whole app off for everyone.
 - **Respect shelf capacity** (on): uses ERPNext's Putaway Rules, see section 3.
-- **Suggest trending products** (off until Lumen gives a key), with the
-  trends service URL, API Key and API Secret, see section 2.
+- **Suggest trending products** and **Suggest bundles** (off until Lumen
+  gives a key), with **Bundle discount (%)** (10) and **Minimum profit on a
+  bundle (%)** (15). Both use **Lumen's AI service**: its URL, API Key and API
+  Secret, and the credit, see section 2.
 - **Suggest transfers between outlets**, **Show stock health**, **Adjust for
   seasons**, **Show rising and falling items**, **Show lost sales**, **Plan
   purchases within a budget**, **Show forecast accuracy**, **Forecast by demand
@@ -570,8 +622,23 @@ The contract, version 2 (`lumen_shelf.api`):
 
 ## 10. Changelog
 
+### 0.13.0 (2026-11-05)
+Bundle ideas, and Lumen Shelf becomes open source.
+- Licence: GNU General Public License v3 (license.txt), listed on the Frappe
+  Cloud Marketplace. Lumen's AI service stays a separate service run by
+  Lumen. See the Privacy Policy and Terms of Service in docs/.
+- New: Product ideas > Bundle ideas. Pairs bought together that make a
+  natural set, checked by Lumen's AI service (names only), each with a name,
+  a price (10% off the two, at least 15% profit kept, both in the settings)
+  and Create bundle, which makes the ERPNext item, Product Bundle and price.
+- Today shows the best bundle ideas among the product ideas.
+- ERPNext 13: the ideas are shown but no bundle is made, since ERPNext 13's
+  point of sale stops working while a Product Bundle exists.
+- Settings: the service's URL, keys and credit are in their own section,
+  Lumen's AI service, used by trending products and bundle ideas.
+
 ### 0.12.0 (2026-11-04)
-The app explains itself (owner: "I do not understand what the app is saying").
+The app explains itself.
 - Today: every task is written as sentences, what is happening, why and our
   suggestion, with the money tied up in stock that does not sell. Each number
   says what it counts, each idea box what to do with it. A three step welcome
@@ -690,8 +757,7 @@ The app explains itself (owner: "I do not understand what the app is saying").
 ### 0.1.0 (2026-10-29)
 
 - First version, phase 1, read only.
-- Named Lumen Shelf by the owner (called Lumen Restock while it was built).
-- Proprietary licence (closed source), see license.txt.
+- Named Lumen Shelf (called Lumen Restock while it was built).
 - Daily sales per item and outlet, weighted to recent weeks, days out of stock
   left out, from POS Invoices and Sales Invoices without double counting.
 - Days left, lead times learned per supplier, safety stock, reorder point,

@@ -40,6 +40,7 @@ class TestApp(RestockCase):
 	# ---- the screens are the reports
 
 	def test_every_screen_is_its_report(self):
+		set_settings(self.company, self.wh["M"], bundle_ideas=1)  # off by default
 		for name, report in app.SCREENS.items():
 			if name == "trending_products":
 				continue  # needs the hub: test_trend_products

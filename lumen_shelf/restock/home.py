@@ -12,7 +12,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
-from lumen_shelf.restock import access, compat, engine, model, trend_products, views
+from lumen_shelf.restock import access, bundles, compat, engine, model, trend_products, views
 
 TASK_LIMIT = 40  # the rest is one click away on the detail screen
 IDEA_LIMIT = 5
@@ -216,6 +216,26 @@ def _ideas(result, allowed, s, company, warehouse, abbr):
 				"count": len(rows),
 				"items": [
 					{"text": r["item_name"] or r["item_code"], "note": _("Sells in {0}, not in {1}").format(place(r["sells_in"], abbr), place(r["warehouse"], abbr))}
+					for r in rows[:IDEA_LIMIT]
+				],
+			}
+		)
+	if s.get("bundle_ideas") and trend_products.configured():
+		rows = [r for r in bundles.rows(company) if r["status_key"] == bundles.STATUS_NEW]
+		ideas.append(
+			{
+				"key": "bundles",
+				"title": _("Bundle ideas"),
+				"help": _("Items your customers buy together that make a natural set. Sell them as one bundle at a small discount."),
+				"report": "Shelf Bundle Ideas",
+				"count": len(rows),
+				"items": [
+					{
+						"text": r["bundle_name"],
+						"note": "{0} + {1}".format(r["item_name"], r["partner_name"]),
+						"amount": r["bundle_price"],
+						"currency": r["currency"],
+					}
 					for r in rows[:IDEA_LIMIT]
 				],
 			}

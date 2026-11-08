@@ -64,6 +64,9 @@ EXTRA = [
 	"Sales history, promotions left out",
 	"ERPNext pricing rule",
 	"LumenPOS promotion",
+	"Shelf Bundle Ideas",
+	"Shelf Bundle Suggestion",
+	"Created",
 ]
 
 

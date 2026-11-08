@@ -33,6 +33,7 @@ FEATURES = {
 	"material_requests": "material_requests",
 	"promotions": "promotions",
 	"trend_products": "trend_products",
+	"bundle_ideas": "bundle_ideas",
 }
 
 # Who may turn suggestions into Material Requests: not Shelf User, who only

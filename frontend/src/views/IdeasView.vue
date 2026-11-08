@@ -1,10 +1,11 @@
 <script setup>
-// Product ideas in one place: trending in the market, missing in a branch,
-// often bought together. Each tab is that screen's own rows.
+// Product ideas in one place: trending in the market, bundle ideas, missing
+// in a branch, often bought together. Each tab is that screen's own rows.
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { screens } from "../screens.js";
 import { state } from "../store.js";
+import BundleIdeas from "./BundleIdeas.vue";
 import ScreenView from "./ScreenView.vue";
 
 const route = useRoute();
@@ -34,7 +35,8 @@ const tab = computed(() => {
 				{{ s.title }}
 			</button>
 		</div>
-		<ScreenView v-if="tab" :key="tab" :name="tab" embedded />
+		<BundleIdeas v-if="tab === 'bundle_ideas'" key="bundle_ideas" />
+		<ScreenView v-else-if="tab" :key="tab" :name="tab" embedded />
 		<div v-else class="notice">{{ __("No product ideas are switched on in the settings.") }}</div>
 	</section>
 </template>

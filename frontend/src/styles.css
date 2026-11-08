@@ -205,6 +205,21 @@ select.input { cursor: pointer; }
 .summary { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
 .summary-item { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; min-width: 140px; }
 .summary-item strong { font-size: 18px; }
+/* bundle ideas */
+.bundles { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.bundles .box { margin-bottom: 0; display: flex; flex-direction: column; gap: 6px; }
+.bundles p { margin: 0; }
+.bundle-name { font-size: 16px; margin: 0; }
+.bundle-items { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-weight: 550; }
+.bundle-items svg { color: var(--muted); }
+.bundle-price { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; padding: 10px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 4px 0; }
+.bundle-price > div { display: flex; flex-direction: column; gap: 2px; }
+.bundle-price s { color: var(--muted); }
+.bundle-act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 6px; }
+.bundles .notice { margin: 0; padding: 8px 10px; }
+.bundle-make { margin: 8px 0 12px; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 4px; }
+.others { margin-bottom: 18px; }
+.others > .link { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 10px; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 14px; overflow-x: auto; }
 .tab { font: inherit; font-weight: 550; padding: 8px 14px; border: 0; background: none; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
 .tab.active { color: var(--blue); border-bottom-color: var(--blue); }

@@ -30,6 +30,8 @@ const PATHS = {
 	clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
 	columns: "M4 5h16v14H4zM9.5 5v14M14.5 5v14",
 	chevron: "M9 6l6 6-6 6",
+	plus: "M12 5v14M5 12h14",
+	bundle: "M3 8l9-4 9 4-9 4-9-4zM3 8v8l9 4 9-4V8M12 12v8",
 };
 </script>
 

@@ -208,7 +208,13 @@ def credit_note():
 
 def ask(company, s=None, wait=True):
 	"""The hub's suggestions for the company: a list of dicts."""
-	sub = call_hub("lumen_trends.api.suggest", data={"request": payload(company, s)})
+	return exchange(payload(company, s), wait=wait).get("suggestions") or []
+
+
+def exchange(request, wait=True):
+	"""Send a request to the hub, wait for its answer and return it (Done).
+	Used by trending products and by bundle ideas (restock/bundles.py)."""
+	sub = call_hub("lumen_trends.api.suggest", data={"request": request})
 	keep_credit(sub.get("credit"))
 	if sub.get("status") == "Failed":
 		raise HubError(refused(sub.get("code")))
@@ -221,7 +227,7 @@ def ask(company, s=None, wait=True):
 		if res.get("status") in ("Done", "Failed"):
 			keep_credit(res.get("credit"))
 		if res.get("status") == "Done":
-			return res.get("suggestions") or []
+			return res
 		if res.get("status") == "Failed":
 			raise HubError(refused(res.get("code")))
 		if not wait or time.monotonic() > deadline:

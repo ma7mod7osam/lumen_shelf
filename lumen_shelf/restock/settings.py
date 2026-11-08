@@ -57,6 +57,9 @@ DEFAULTS = {
 	"auto_reorder": 0,
 	"reorder_alerts": 1,
 	"trend_products": 0,
+	"bundle_ideas": 0,
+	"bundle_discount": 10,
+	"bundle_min_margin": 15,
 }
 
 # Allowed ranges, checked when the settings are saved and again when read, so a
@@ -70,6 +73,8 @@ LIMITS = {
 	"slow_days": (7, 3650),
 	"overstock_days": (7, 3650),
 	"trend_threshold": (5, 500),
+	"bundle_discount": (1, 50),
+	"bundle_min_margin": (1, 90),
 }
 
 CHECKS = (
@@ -94,6 +99,7 @@ CHECKS = (
 	"promotions",
 	"shelf_capacity",
 	"trend_products",
+	"bundle_ideas",
 )
 
 

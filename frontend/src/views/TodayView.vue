@@ -197,6 +197,7 @@ function requestAll() {
 						<div v-for="(x, i) in b.items" :key="i" class="idea">
 							<div>{{ x.text }}</div>
 							<div class="muted small">{{ x.note || "" }}</div>
+							<div v-if="x.amount" class="small"><WithAmount :text='__("Bundle price: {0}")' :amount="money(x.amount, x.currency)" /></div>
 						</div>
 					</div>
 				</div>

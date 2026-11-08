@@ -3,7 +3,7 @@ app_title = "Lumen Shelf"
 app_publisher = "Lumen Solutions"
 app_description = "Smart restocking for ERPNext: sales speed, days left, reorder points, transfer and purchase suggestions"
 app_email = "hello@lumen-solutions.co"
-app_license = "Proprietary"
+app_license = "gpl-3.0"
 
 required_apps = ["erpnext"]
 
@@ -37,7 +37,7 @@ before_uninstall = "lumen_shelf.install.before_uninstall"
 # Lumen's trends service in a background job.
 scheduler_events = {
 	"cron": {"15 0 * * *": ["lumen_shelf.restock.reorder.nightly"]},
-	"weekly": ["lumen_shelf.restock.trend_products.weekly"],
+	"weekly": ["lumen_shelf.restock.trend_products.weekly", "lumen_shelf.restock.bundles.weekly"],
 }
 
 # Tests only: complete ERPNext's setup on a bare test site (Frappe v16 runs

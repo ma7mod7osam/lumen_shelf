@@ -3,6 +3,17 @@
 import frappe
 
 
+def erpnext_major():
+	"""ERPNext's major version (13 to 16). A version that is not a number
+	(a develop branch) counts as the newest."""
+	import erpnext
+
+	try:
+		return int(str(getattr(erpnext, "__version__", "13")).split(".")[0])
+	except ValueError:
+		return 99
+
+
 def cache():
 	"""frappe.cache is a function on v13 and v14, an object that is also
 	callable on v15. frappe.cache() works on v13, v14 and v15; on v16 the object

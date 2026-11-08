@@ -73,6 +73,7 @@ function visible(f) {
 const BUTTONS = {
 	update_levels_now: "lumen_shelf.restock.reorder.update_now",
 	refresh_trends_now: "lumen_shelf.restock.trend_products.refresh_now",
+	refresh_bundles_now: "lumen_shelf.restock.bundles.refresh_now",
 	check_credit: "lumen_shelf.restock.trend_products.check_credit",
 };
 const busy = ref("");

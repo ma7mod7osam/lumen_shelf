@@ -225,6 +225,15 @@ export function screens(boot) {
 			],
 		},
 		{
+			name: "bundle_ideas",
+			title: __("Bundle ideas"),
+			icon: "bundle",
+			idea: 1,
+			intro: __("Items your customers buy together that make a natural set. Sell them as one bundle at a small discount."),
+			main: ["bundle_name", "item_name", "partner_name", "bundle_price", "discount", "margin"],
+			filters: [company],
+		},
+		{
 			name: "assortment_gaps",
 			title: __("Missing in a branch"),
 			icon: "gap",
@@ -262,6 +271,7 @@ export const REPORT_SCREEN = {
 	"Shelf Stock Health": "stock_health",
 	"Shelf Promotions": "promotions",
 	"Shelf Trending Products": "trending_products",
+	"Shelf Bundle Ideas": "bundle_ideas",
 	"Shelf Assortment Gaps": "assortment_gaps",
 	"Shelf Bought Together": "bought_together",
 	"Shelf Forecast Accuracy": "forecast_accuracy",

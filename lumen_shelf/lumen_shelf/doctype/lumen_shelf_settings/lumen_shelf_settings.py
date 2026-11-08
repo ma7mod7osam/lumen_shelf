@@ -16,6 +16,8 @@ class LumenShelfSettings(Document):
 			"slow_days": _("Slow when stock lasts more than (days)"),
 			"overstock_days": _("Overstock when stock lasts more than (days)"),
 			"trend_threshold": _("Rising or falling from (%)"),
+			"bundle_discount": _("Bundle discount (%)"),
+			"bundle_min_margin": _("Minimum profit on a bundle (%)"),
 		}
 		for field, (lo, hi) in st.LIMITS.items():
 			value = self.get(field)
@@ -41,7 +43,7 @@ class LumenShelfSettings(Document):
 					frappe.throw(_("Row {0}: company {1} already has a main warehouse.").format(row.idx, row.company))
 				mains[row.company] = row.warehouse
 
-		if cint(self.trend_products) and not (
+		if (cint(self.trend_products) or cint(self.bundle_ideas)) and not (
 			(self.trends_url or "").strip() and (self.trends_api_key or "").strip() and self.trends_api_secret
 		):
 			frappe.msgprint(

@@ -47,12 +47,19 @@ def theirs():
 def site_dict():
 	import frappe.translate as t
 
+	# put the language back: the whole app's tests run in one process on CI
+	before = frappe.local.lang
 	frappe.local.lang = "ar"
-	for name in ("get_full_dict", "get_all_translations"):
-		fn = getattr(t, name, None)
-		if fn:
-			return fn("ar") or {}
-	return {}
+	try:
+		for name in ("get_full_dict", "get_all_translations"):
+			fn = getattr(t, name, None)
+			if fn:
+				return fn("ar") or {}
+		return {}
+	finally:
+		frappe.local.lang = before
+		if getattr(frappe.local, "lang_full_dict", None) is not None:
+			frappe.local.lang_full_dict = None
 
 
 class TestTranslations(unittest.TestCase):

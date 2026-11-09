@@ -265,7 +265,7 @@ value, B = the next 15%, C = the rest), and a status:
   window (Stores, Work In Progress, Finished Goods, a store room). Its stock
   is not counted as not selling and gets no discount. The main warehouse is
   never put here, it supplies the outlets.
-- **OK**.
+- **Healthy**.
 
 Days left shows **365+** when what is on the shelf lasts more than a year.
 
@@ -636,6 +636,8 @@ Bundle ideas, and Lumen Shelf becomes open source.
   point of sale stops working while a Product Bundle exists.
 - Settings: the service's URL, keys and credit are in their own section,
   Lumen's AI service, used by trending products and bundle ideas.
+- Stock health: the status "OK" now reads "Healthy" in English (Arabic
+  unchanged, سليم).
 
 ### 0.12.0 (2026-11-04)
 The app explains itself.

@@ -28,7 +28,7 @@ frappe.query_reports["Shelf Stock Health"] = {
 				{ value: "Overstock", label: __("Overstock") },
 				{ value: "Too new", label: __("Too new") },
 				{ value: "Warehouse does not sell", label: __("Warehouse does not sell") },
-				{ value: "OK", label: __("OK") },
+				{ value: "OK", label: __("Healthy") },
 			],
 		},
 		{

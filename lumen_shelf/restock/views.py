@@ -58,6 +58,14 @@ def action_text(p):
 		return _("Discount")
 	return ""
 
+def status_label(status):
+	"""The status in the reader's language. "OK" shows as "Healthy": Frappe
+	translates the bare word "OK" itself (see translation tests)."""
+	if status == engine.STATUS_OK:
+		return _("Healthy")
+	return _(status)
+
+
 STATUSES = (
 	engine.STATUS_NO_SALES,
 	engine.STATUS_SLOW,
@@ -250,7 +258,7 @@ def stock_health(result, allowed, warehouse=None, status=None, abc=None, trend=N
 				"abc": p["abc"],
 				"abc_company": p["abc_company"],
 				"status_key": p["status"],
-				"status": _(p["status"]),
+				"status": status_label(p["status"]),
 				"on_shelf": _r(p["on_shelf"], 3),
 				"daily_sales": _r(p["speed"], 3),
 				"days_left": _r(p["days_left"], 1),

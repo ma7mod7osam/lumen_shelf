@@ -21,7 +21,7 @@ EXTRA = [
 	"Wait for main warehouse",
 	"Running low there",
 	"Sells faster there",
-	"OK",
+	"Healthy",
 	"Too new",
 	"No sales",
 	"Slow",

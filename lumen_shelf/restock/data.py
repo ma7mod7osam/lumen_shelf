@@ -30,17 +30,27 @@ def _items_clause(items, column="item_code"):
 	return (" and %s in %%(items)s" % column) if items else ""
 
 
+# Pricing Rule apply_on -> (set it fills, query of its child table)
+RULE_CHILD = {
+	"Item Code": ("items", "select item_code from `tabPricing Rule Item Code` where parent = %s and parenttype = 'Pricing Rule'"),
+	"Item Group": ("groups", "select item_group from `tabPricing Rule Item Group` where parent = %s and parenttype = 'Pricing Rule'"),
+	"Brand": ("brands", "select brand from `tabPricing Rule Brand` where parent = %s and parenttype = 'Pricing Rule'"),
+}
+
+
 def warehouses(company):
-	has_rejected = frappe.db.has_column("Warehouse", "is_rejected_warehouse")
-	rows = frappe.db.sql(
-		"""select name, warehouse_type, {rej} as is_rejected
+	# is_rejected_warehouse exists on ERPNext 15+ only
+	if frappe.db.has_column("Warehouse", "is_rejected_warehouse"):
+		query = """select name, warehouse_type, is_rejected_warehouse as is_rejected
 		from `tabWarehouse`
 		where company=%s and is_group=0 and disabled=0
-		order by name""".format(rej="is_rejected_warehouse" if has_rejected else "0"),
-		(company,),
-		as_dict=True,
-	)
-	return rows
+		order by name"""
+	else:
+		query = """select name, warehouse_type, 0 as is_rejected
+		from `tabWarehouse`
+		where company=%s and is_group=0 and disabled=0
+		order by name"""
+	return frappe.db.sql(query, (company,), as_dict=True)
 
 
 def item_master(item_codes):
@@ -287,17 +297,23 @@ def baskets(company, whs, start, end):
 	"""[set of items] per invoice: POS Invoices and Sales Invoices that are not
 	a POS consolidation, not returns, in the window, lines in `whs`."""
 	out = {}
-	for child, parent, cond in (
-		("`tabPOS Invoice Item`", "`tabPOS Invoice`", ""),
-		("`tabSales Invoice Item`", "`tabSales Invoice`", " and s.is_consolidated=0"),
-	):
-		rows = frappe.db.sql(
-			"""select s.name, i.item_code from {child} i join {parent} s on s.name = i.parent
-			where s.docstatus=1 and s.is_return=0 and s.company=%(company)s{cond}
+	for parent, query in (
+		(
+			"POS Invoice",
+			"""select s.name, i.item_code from `tabPOS Invoice Item` i join `tabPOS Invoice` s on s.name = i.parent
+			where s.docstatus=1 and s.is_return=0 and s.company=%(company)s
 				and s.posting_date between %(start)s and %(end)s
-				and i.warehouse in %(whs)s""".format(child=child, parent=parent, cond=cond),
-			{"company": company, "whs": _in(whs), "start": start, "end": end},
-		)
+				and i.warehouse in %(whs)s""",
+		),
+		(
+			"Sales Invoice",
+			"""select s.name, i.item_code from `tabSales Invoice Item` i join `tabSales Invoice` s on s.name = i.parent
+			where s.docstatus=1 and s.is_return=0 and s.company=%(company)s and s.is_consolidated=0
+				and s.posting_date between %(start)s and %(end)s
+				and i.warehouse in %(whs)s""",
+		),
+	):
+		rows = frappe.db.sql(query, {"company": company, "whs": _in(whs), "start": start, "end": end})
 		for name, item in rows:
 			out.setdefault((parent, name), set()).add(item)
 	return list(out.values())
@@ -506,25 +522,22 @@ def promotions(company, start, end):
 		p = _promo("Pricing Rule", r.name, r.title, r.valid_from or start, r.valid_upto)
 		if r.warehouse:
 			p["warehouses"].add(r.warehouse)
-		child = {"Item Code": ("Pricing Rule Item Code", "item_code", "items"),
-			"Item Group": ("Pricing Rule Item Group", "item_group", "groups"),
-			"Brand": ("Pricing Rule Brand", "brand", "brands")}[r.apply_on]
-		for (v,) in frappe.db.sql(
-			"select {0} from `tab{1}` where parent = %s and parenttype = 'Pricing Rule'".format(child[1], child[0]), r.name
-		):
+		key, query = RULE_CHILD[r.apply_on]
+		for (v,) in frappe.db.sql(query, r.name):
 			if v:
-				p[child[2]].add(v)
+				p[key].add(v)
 		out.append(p)
 
 	if frappe.db.table_exists("POS Promotion"):
 		days = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 		promos = frappe.db.sql(
-			"""select name, title, start_date, end_date, apply_on_all, {0}
+			"""select name, title, start_date, end_date, apply_on_all,
+				monday, tuesday, wednesday, thursday, friday, saturday, sunday
 			from `tabPOS Promotion`
 			where status = 'Active' and ifnull(requires_coupon, 0) = 0 and end_date is not null
 				and ifnull(promotion_type, '') != 'Spend and Save'
 				and end_date >= %(start)s and ifnull(start_date, %(start)s) <= %(end)s
-				and ifnull(company, '') in ('', %(company)s)""".format(", ".join(days)),
+				and ifnull(company, '') in ('', %(company)s)""",
 			{"start": start, "end": end, "company": company},
 			as_dict=True,
 		)

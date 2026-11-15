@@ -1,6 +1,6 @@
 # Lumen Shelf: User Guide
 
-*Applies to Lumen Shelf v0.13.0 (bundle ideas).
+*Applies to Lumen Shelf v0.13.1 (bundle ideas).
 This document is updated with every change.*
 
 Lumen Shelf learns how fast each item sells in each outlet, works out how
@@ -621,6 +621,17 @@ The contract, version 2 (`lumen_shelf.api`):
    run. The default stays "suggest, the shop approves".
 
 ## 10. Changelog
+
+### 0.13.1 (2026-11-15)
+Changes asked for by the Frappe Cloud Marketplace review. Nothing changes on
+the screens.
+- Database queries are written out in full, with no text joined into them.
+- The app's own list of screen texts is part of the code, not a file read
+  from disk.
+- Settings are saved the way Frappe asks for single settings documents, and
+  the weekly background jobs leave saving to Frappe.
+- Refresh now (trending products, bundle ideas) answers POST requests only.
+- Screenshots for the Marketplace listing in docs/marketplace/screenshots.
 
 ### 0.13.0 (2026-11-05)
 Bundle ideas, and Lumen Shelf becomes open source.

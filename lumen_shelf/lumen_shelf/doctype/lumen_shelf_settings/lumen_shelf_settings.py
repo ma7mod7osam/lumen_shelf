@@ -62,7 +62,7 @@ class LumenShelfSettings(Document):
 		was_on = bool(before and cint(before.get("enabled")) and cint(before.get("auto_reorder")))
 		now_on = bool(cint(self.enabled) and cint(self.auto_reorder))
 		if now_on and not cint(frappe.db.get_single_value("Stock Settings", "auto_indent")):
-			frappe.db.set_value("Stock Settings", "Stock Settings", "auto_indent", 1)
+			frappe.db.set_single_value("Stock Settings", "auto_indent", 1)
 			frappe.msgprint(
 				_("ERPNext's automatic material requests (Stock Settings) have been switched on, so ERPNext acts on the reorder levels."),
 				alert=True,

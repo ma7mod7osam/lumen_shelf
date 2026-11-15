@@ -9,7 +9,7 @@ import unittest
 
 import frappe
 
-from lumen_shelf import i18n_strings
+from lumen_shelf.tests import i18n_strings
 
 DIACRITICS = re.compile("[ً-ْٰ]")
 DASHES = ("—", "–")

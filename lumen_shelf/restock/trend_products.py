@@ -184,8 +184,7 @@ def keep_credit(c):
 	"""What the hub says the shop may still spend, shown in the settings."""
 	if not isinstance(c, dict):
 		return
-	frappe.db.set_value(
-		DOCTYPE,
+	frappe.db.set_single_value(
 		DOCTYPE,
 		{
 			"trends_credit": flt(c.get("balance")),
@@ -193,6 +192,7 @@ def keep_credit(c):
 			"trends_available": flt(c.get("available")),
 			"trends_topup_url": (c.get("topup_url") or "")[:500],
 		},
+		None,
 		update_modified=False,
 	)
 
@@ -308,11 +308,10 @@ def run(companies):
 		except Exception:
 			frappe.log_error(title="Lumen Shelf trending products: %s" % c)
 			lines.append(_("{0}: something went wrong, see the Error Log.").format(c))
-	frappe.db.set_value(
-		DOCTYPE, DOCTYPE, {"last_trends_run": now_datetime(), "last_trends_result": "\n".join(lines)[:1000]}, update_modified=False
+	# a background job: Frappe commits it when it ends
+	frappe.db.set_single_value(
+		DOCTYPE, {"last_trends_run": now_datetime(), "last_trends_result": "\n".join(lines)[:1000]}, None, update_modified=False
 	)
-	if not frappe.flags.in_test:
-		frappe.db.commit()
 	return lines
 
 
@@ -325,7 +324,7 @@ def weekly():
 	frappe.enqueue("lumen_shelf.restock.trend_products.run", queue="long", timeout=3600, companies=companies)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def refresh_now(company=None):
 	"""The Refresh button: Shelf Manager or System Manager, the switches on,
 	the hub set up. Runs in the background."""

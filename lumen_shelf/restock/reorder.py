@@ -63,8 +63,8 @@ def _rows(warehouses):
 		return []
 	return frappe.db.sql(
 		"""select name, parent, warehouse, warehouse_reorder_level, warehouse_reorder_qty,
-			material_request_type, ifnull({0}, 0) as managed, idx
-		from `tabItem Reorder` where parenttype = 'Item' and warehouse in %(whs)s""".format(FIELD),
+			material_request_type, ifnull(lumen_shelf_managed, 0) as managed, idx
+		from `tabItem Reorder` where parenttype = 'Item' and warehouse in %(whs)s""",
 		{"whs": tuple(warehouses)},
 		as_dict=True,
 	)
@@ -161,7 +161,7 @@ def clear_all():
 	"""Remove every level Lumen Shelf set. Returns how many."""
 	if not frappe.db.has_column("Item Reorder", FIELD):
 		return 0
-	items = frappe.db.sql_list("select distinct parent from `tabItem Reorder` where {0} = 1".format(FIELD))
+	items = frappe.get_all("Item Reorder", filters={FIELD: 1}, pluck="parent", distinct=True)
 	n = frappe.db.count("Item Reorder", {FIELD: 1})
 	if n:
 		frappe.db.delete("Item Reorder", {FIELD: 1})
@@ -183,7 +183,7 @@ def run(companies=None):
 		for k, v in apply(result).items():
 			totals[k] += v
 	text = summary(totals)
-	frappe.db.set_value(st.DOCTYPE, st.DOCTYPE, {"last_reorder_run": now_datetime(), "last_reorder_result": text}, update_modified=False)
+	frappe.db.set_single_value(st.DOCTYPE, {"last_reorder_run": now_datetime(), "last_reorder_result": text}, None, update_modified=False)
 	if s["reorder_alerts"]:
 		alert(text)
 	return totals

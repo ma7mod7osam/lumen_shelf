@@ -11,7 +11,7 @@ import os
 
 import frappe
 
-from lumen_shelf import i18n_strings
+from lumen_shelf.tests import i18n_strings
 from lumen_shelf.restock import access, app, home
 from lumen_shelf.restock import settings as st
 from lumen_shelf.tests.test_access import limit, make_user
@@ -263,7 +263,7 @@ class TestApp(RestockCase):
 		self.assertTrue(os.path.exists(frappe.get_app_path("lumen_shelf", "public", "shelf", "shelf.js")))
 
 	def test_app_strings_are_up_to_date(self):
-		"""app_strings.json is what frontend/src uses (rebuilt by npm run build)."""
+		"""restock/app_strings.py is what frontend/src uses (rebuilt by npm run build)."""
 		src = os.path.join(os.path.dirname(frappe.get_app_path("lumen_shelf")), "frontend", "src")
 		if not os.path.isdir(src):
 			self.skipTest("no frontend source on this bench")

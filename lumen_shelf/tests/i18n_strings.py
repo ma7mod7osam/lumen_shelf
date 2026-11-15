@@ -6,7 +6,10 @@ import json
 import os
 import re
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+from lumen_shelf.restock.app_strings import STRINGS
+
+# the app package (this file sits in its tests folder, which is skipped)
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PY = re.compile(r'(?<![A-Za-z_])_\(\s*"((?:[^"\\]|\\.)+)"\s*[,)]')
 JS = re.compile(r'__\(\s*"((?:[^"\\]|\\.)+)"\s*[,)]')
 SKIP_DIRS = {"tests", "__pycache__", "public", "translations"}
@@ -94,8 +97,5 @@ def collect(root=ROOT):
 					if fl.get("fieldtype") == "Select" and fl.get("options"):
 						out.update(o for o in fl["options"].split("\n") if o and not o.endswith("%"))
 	# the app at /shelf: its texts, listed at build time (frontend/extract-strings.mjs)
-	app = os.path.join(root, "restock", "app_strings.json")
-	if os.path.exists(app):
-		with open(app, encoding="utf-8") as fh:
-			out.update(json.load(fh))
+	out.update(STRINGS)
 	return sorted(s.replace('\\"', '"') for s in out)

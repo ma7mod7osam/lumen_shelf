@@ -207,11 +207,10 @@ def run(companies):
 		except Exception:
 			frappe.log_error(title="Lumen Shelf bundle ideas: %s" % c)
 			lines.append(_("{0}: something went wrong, see the Error Log.").format(c))
-	frappe.db.set_value(
-		DOCTYPE, DOCTYPE, {"last_bundles_run": now_datetime(), "last_bundles_result": "\n".join(lines)[:1000]}, update_modified=False
+	# a background job: Frappe commits it when it ends
+	frappe.db.set_single_value(
+		DOCTYPE, {"last_bundles_run": now_datetime(), "last_bundles_result": "\n".join(lines)[:1000]}, None, update_modified=False
 	)
-	if not frappe.flags.in_test:
-		frappe.db.commit()
 	return lines
 
 
@@ -236,7 +235,7 @@ def _check_manager():
 		frappe.throw(_("Only a Shelf Manager may do this with bundle ideas."), frappe.PermissionError)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def refresh_now(company=None):
 	"""Ask for new ideas: Shelf Manager or System Manager, the switches on,
 	the service set up. Runs in the background."""

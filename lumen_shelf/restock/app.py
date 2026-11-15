@@ -8,12 +8,12 @@ permission on its ref doctype), so the app and the reports can never
 disagree. Nothing here works anything out on its own."""
 
 import json
-import os
 
 import frappe
 from frappe import _
 
 from lumen_shelf.restock import access, home, settings as st
+from lumen_shelf.restock.app_strings import STRINGS
 
 # screen name in the app -> the report it shows
 SCREENS = {
@@ -49,17 +49,12 @@ LOOKUPS = {
 SETTINGS = "Lumen Shelf Settings"
 TREND = "Shelf Trend Suggestion"
 SKIP_FIELDS = ("Section Break", "Column Break", "Tab Break", "HTML", "Table", "Button")
-STRINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_strings.json")
 
 
 def app_strings():
 	"""Every text the app's screen shows, listed by frontend/extract-strings.mjs
 	at build time."""
-	try:
-		with open(STRINGS_FILE, encoding="utf-8") as fh:
-			return json.load(fh)
-	except (OSError, ValueError):
-		return []
+	return list(STRINGS)
 
 
 def _may_open(user=None):

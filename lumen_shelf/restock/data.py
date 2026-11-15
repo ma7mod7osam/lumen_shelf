@@ -258,13 +258,24 @@ def batches(pairs):
 	"""{(item, warehouse): [(expiry date, qty)]} for items kept in batches with
 	an expiry date. The quantities come from ERPNext's own get_batch_qty, so
 	they are right on every version (v15+ keeps batches in Serial and Batch
-	Bundles, older versions on the Stock Ledger)."""
-	from erpnext.stock.doctype.batch.batch import get_batch_qty
+	Bundles, older versions on the Stock Ledger).
+
+	The engine works for the whole company and each screen then keeps only
+	the warehouses its user may see. ERPNext 15 and 16 (late 2026) check the
+	caller's Batch and Warehouse permissions inside the whitelisted
+	get_batch_qty, so where ERPNext has its internal get_batch_qty_for_stock
+	(what get_batch_qty itself calls) we use that."""
+	try:
+		from erpnext.stock.doctype.serial_and_batch_bundle.serial_and_batch_bundle import (
+			get_batch_qty_for_stock as batch_qty,
+		)
+	except ImportError:
+		from erpnext.stock.doctype.batch.batch import get_batch_qty as batch_qty
 
 	out = {}
 	expiry = {}
 	for item, wh in pairs:
-		rows = get_batch_qty(warehouse=wh, item_code=item) or []
+		rows = batch_qty(warehouse=wh, item_code=item) or []
 		got = []
 		for r in rows:
 			qty = flt(r.get("qty"))

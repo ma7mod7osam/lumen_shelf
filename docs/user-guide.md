@@ -632,6 +632,10 @@ the screens.
   the weekly background jobs leave saving to Frappe.
 - Refresh now (trending products, bundle ideas) answers POST requests only.
 - Screenshots for the Marketplace listing in docs/marketplace/screenshots.
+- Fixed: on the newest ERPNext 15 and 16, a person limited to some
+  warehouses got "Not permitted" on every screen when the shop keeps
+  batches with expiry dates. Batch quantities are now read the way ERPNext
+  reads them for its own stock work.
 
 ### 0.13.0 (2026-11-05)
 Bundle ideas, and Lumen Shelf becomes open source.
